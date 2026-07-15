@@ -17,7 +17,7 @@ setup(
     # long_description=README,
     url='https://openimis.org/',
     author='Kevel CHOUMENE',
-    author_email='keveltiah@gmail.com',
+    author_email='k.choumene@cloudfacile.com',
     install_requires=[
         'django',
         'django-hordak',
