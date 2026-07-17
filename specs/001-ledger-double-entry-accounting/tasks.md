@@ -306,3 +306,10 @@ With multiple developers, after Foundational (Phase 2) is done:
 - Commit after each task or logical group
 - Stop at any checkpoint to validate a story independently before moving to the next
 - Avoid: same-file conflicts on `ledger/models.py`/`ledger/services.py` when parallelizing — coordinate ordering on those shared files even where tasks are logically independent
+
+---
+
+## Phase 9: Convergence
+
+- [ ] T086 CRITICAL: Reconcile the pre-existing legacy `AccountPeriod`/`AccountJournal`/`Sequence` models in `ledger/models.py` and `ledger/migrations/0001_initial.py` (non-Hordak-based, only two period states) with the plan-mandated `AccountingPeriod`/`LedgerJournal`/`ExportSequence` schema before/while completing T006, T007, and T076, ensuring the accounting period lifecycle supports open/locked/closed per FR-007 (plan.md Foundational Phase) (contradicts)
+- [ ] T087 Remove or justify the unrequested `read_all_calculation_rules()`/`CALCULATION_RULES` code in `ledger/apps.py`, which imports an unrelated `calculation_comores.calculation_rule` module not called for by spec.md or plan.md (plan.md Project Structure) (unrequested)
