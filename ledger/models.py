@@ -1,13 +1,13 @@
 from core import fields
 from core import models as core_models
 from django.db import models
-from hordak.models import Account
+from hordak.models import Account, Leg, Transaction
+from django.core.exceptions import ValidationError
 
-class Sequence(core_models.VersionedModel):
+class Sequence(core_models.HistoryModel):
     """
     This is Sequence class it all the fields needed
     """
-    id = models.AutoField(db_column='SequenceID', primary_key=True)
     name = models.CharField(db_column='Name', max_length=100, blank=True, null=True, unique=True)
     code = models.CharField(db_column='Code', max_length=50, blank=True, null=True, unique=True)
     prefix = models.CharField(db_column='Prefix', max_length=50, blank=True, null=True)
@@ -18,38 +18,344 @@ class Sequence(core_models.VersionedModel):
         managed = True
         db_table = 'tblSequence'
 
-class AccountPeriod(core_models.VersionedModel):
+class AccountingPeriod(core_models.HistoryModel):
     """
-    This is AccountPeriod class it all the fields needed
+    Accounting period lifecycle management
     """
-    id = models.AutoField(db_column='AccountPeriodID', primary_key=True)
-    start_date = fields.DateField(db_column='StartDate', null=True, blank=True)
-    end_date = fields.DateField(db_column='EndDate', null=True, blank=True)
-    name = models.CharField(db_column='Name', max_length=100, blank=True, null=True, unique=True)
-    code = models.CharField(db_column='Code', max_length=50, blank=True, null=True, unique=True)
-    status = models.SmallIntegerField(db_column='Status', blank=True, null=True)
-    audit_user_id = models.IntegerField(db_column='AuditCreateUser', null=True, blank=True)
-    audit_user_id_closed = models.IntegerField(db_column='AuditCloseUser', null=True, blank=True)
 
     STATUS_OPEN = 1
-    STATUS_CLOSED = 2
+    STATUS_LOCKED = 2
+    STATUS_CLOSED = 3
+
+    STATUS_CHOICES = (
+        (STATUS_OPEN, "Open"),
+        (STATUS_LOCKED, "Locked"),
+        (STATUS_CLOSED, "Closed"),
+    )
+
+    start_date = fields.DateField(
+        db_column='StartDate',
+        null=True,
+        blank=True
+    )
+
+    end_date = fields.DateField(
+        db_column='EndDate',
+        null=True,
+        blank=True
+    )
+
+    name = models.CharField(
+        db_column='Name',
+        max_length=100,
+        blank=True,
+        null=True,
+        unique=True
+    )
+
+    code = models.CharField(
+        db_column='Code',
+        max_length=50,
+        blank=True,
+        null=True,
+        unique=True
+    )
+
+    status = models.SmallIntegerField(
+        db_column='Status',
+        choices=STATUS_CHOICES,
+        default=STATUS_OPEN
+    )
+
+    audit_user_id = models.IntegerField(
+        db_column='AuditCreateUser',
+        null=True,
+        blank=True
+    )
+
+    audit_user_id_closed = models.IntegerField(
+        db_column='AuditCloseUser',
+        null=True,
+        blank=True
+    )
+
+    closing_transaction = models.ForeignKey(
+        Transaction,
+        models.DO_NOTHING,
+        db_column='ClosingTransactionID',
+        null=True,
+        blank=True,
+        related_name='closed_account_periods'
+    )
+
+    locked_at = models.DateTimeField(
+        db_column='LockedAt',
+        null=True,
+        blank=True
+    )
+
+    closed_at = models.DateTimeField(
+        db_column='ClosedAt',
+        null=True,
+        blank=True
+    )
+
+    closed_by = models.IntegerField(
+        db_column='ClosedBy',
+        null=True,
+        blank=True
+    )
+
+    @property
+    def is_open(self):
+        return self.status == self.STATUS_OPEN
+
+    @property
+    def is_locked(self):
+        return self.status == self.STATUS_LOCKED
+
+    @property
+    def is_closed(self):
+        return self.status == self.STATUS_CLOSED
 
     class Meta:
         managed = True
-        db_table = 'tblAccountPeriod'
+        db_table = 'tblAccountingPeriod'
 
-class AccountJournal(core_models.VersionedModel):
+class LedgerJournal(core_models.HistoryModel):
     """
-    This is AccountJournal class it all the fields needed
+    This is Journal class it all the fields needed
     """
-    id = models.AutoField(db_column='AccountJournalID', primary_key=True)
     name = models.CharField(db_column='Name', max_length=100, blank=True, null=True, unique=True)
     code = models.CharField(db_column='Code', max_length=50, blank=True, null=True, unique=True)
     type = models.CharField(db_column='Type', max_length=50, blank=True, null=True)
     sequence_id = models.ForeignKey(Sequence, models.DO_NOTHING, db_column='SequenceID', related_name="sequencies")
-    default_credit_account_id = models.ForeignKey(Account, models.DO_NOTHING, db_column='DefaultCreditAccountId', related_name="defaultcreditaccounts")
-    default_debit_account_id = models.ForeignKey(Account, models.DO_NOTHING, db_column='DefaultDebitAccountId', related_name="defaultdebitaccounts")
+    default_credit_account_id = models.ForeignKey(
+        Account, models.DO_NOTHING, db_column='DefaultCreditAccountId', related_name="defaultcreditaccounts")
+    default_debit_account_id = models.ForeignKey(
+        Account, models.DO_NOTHING, db_column='DefaultDebitAccountId', related_name="defaultdebitaccounts")
 
     class Meta:
         managed = True
-        db_table = 'tblAccountJournal'
+        db_table = 'tblLedgerJournal'
+
+    def __str__(self):
+        return self.code or self.name or str(self.id)
+
+class AnalyticAxis(core_models.HistoryModel):
+    PARTY = "party"
+    FUNDER = "funder"
+
+    AXIS_CHOICES = (
+        (PARTY, "Party"),
+        (FUNDER, "Funder"),
+    )
+
+    code = models.CharField(
+        db_column='Code',
+        max_length=50,
+        unique=True,
+        choices=AXIS_CHOICES,
+    )
+    name = models.CharField(
+        db_column='Name',
+        max_length=100,
+    )
+
+    class Meta:
+        db_table = 'tblAnalyticAxis'
+
+
+class AnalyticValue(core_models.HistoryModel):
+    PARTY_INSUREE_FAMILY = "insuree_family"
+    PARTY_HEALTH_FACILITY = "health_facility"
+    PARTY_PAYMENT_POINT_MANAGER = "payment_point_manager"
+
+    PARTY_TYPES = (
+        (PARTY_INSUREE_FAMILY, "Insuree/Family"),
+        (PARTY_HEALTH_FACILITY, "Health Facility"),
+        (PARTY_PAYMENT_POINT_MANAGER, "Payment Point Manager"),
+    )
+
+    axis = models.ForeignKey(
+        AnalyticAxis,
+        models.DO_NOTHING,
+        db_column='AnalyticAxisID',
+        related_name='values'
+    )
+
+    party_type = models.CharField(
+        db_column='PartyType',
+        max_length=50,
+        choices=PARTY_TYPES,
+        blank=True,
+        null=True,
+    )
+
+    funder_code = models.CharField(
+        db_column='FunderCode',
+        max_length=100,
+        blank=True,
+        null=True,
+    )
+
+    external_reference = models.CharField(
+        db_column='ExternalReference',
+        max_length=255,
+    )
+
+    display_name = models.CharField(
+        db_column='DisplayName',
+        max_length=255,
+    )
+
+    def clean(self):
+        if self.axis.code == AnalyticAxis.PARTY:
+            if not self.party_type:
+                raise ValidationError(
+                    "party_type is required for party axis"
+                )
+
+        if self.axis.code == AnalyticAxis.FUNDER:
+            if not self.funder_code:
+                raise ValidationError(
+                    "funder_code is required for funder axis"
+                )
+
+    class Meta:
+        db_table = 'tblAnalyticValue'
+
+
+class LegTag(core_models.HistoryModel):
+
+    leg = models.ForeignKey(
+        Leg,
+        models.CASCADE,
+        db_column='LegID',
+        related_name='analytic_tags'
+    )
+
+    analytic_value = models.ForeignKey(
+        AnalyticValue,
+        models.CASCADE,
+        db_column='AnalyticValueID',
+        related_name='leg_tags'
+    )
+
+    def clean(self):
+        existing = LegTag.objects.filter(
+            leg=self.leg,
+            analytic_value__axis=self.analytic_value.axis
+        )
+
+        if self.pk:
+            existing = existing.exclude(pk=self.pk)
+
+        if existing.exists():
+            raise ValidationError(
+                f"Leg already contains a tag for axis "
+                f"{self.analytic_value.axis.code}"
+            )
+
+    class Meta:
+        db_table = 'tblLegTag'
+
+
+class LedgerEntryMeta(core_models.HistoryModel):
+    SOURCE_EVENT_TYPES = (
+        ("claim_payment", "Claim Payment"),
+        ("invoice", "Invoice"),
+        ("payroll_disbursement", "Payroll"),
+        ("payment_point_reconciliation", "Payment Point"),
+        ("closing_entry", "Closing Entry"),
+        ("correction", "Correction"),
+    )
+
+    transaction = models.OneToOneField(
+        Transaction,
+        models.CASCADE,
+        db_column='TransactionID',
+        related_name='ledger_meta'
+    )
+
+    journal = models.ForeignKey(
+        LedgerJournal,
+        models.DO_NOTHING,
+        db_column='LedgerJournalID'
+    )
+
+    accounting_period = models.ForeignKey(
+        AccountingPeriod,
+        models.DO_NOTHING,
+        db_column='AccountingPeriodID'
+    )
+
+    source_event_type = models.CharField(
+        db_column='SourceEventType',
+        max_length=50,
+        choices=SOURCE_EVENT_TYPES,
+    )
+
+    source_event_reference = models.CharField(
+        db_column='SourceEventReference',
+        max_length=255,
+    )
+
+    posted_at = models.DateTimeField(
+        db_column='PostedAt',
+        auto_now_add=True,
+    )
+
+    def clean(self):
+        if self.accounting_period.status != AccountingPeriod.STATUS_OPEN:
+            raise ValidationError(
+                "Posting allowed only in open period"
+            )
+
+    class Meta:
+        db_table = 'tblLedgerEntryMeta'
+
+
+class DeploymentConfiguration(core_models.HistoryModel):
+
+    OPERATING_MODE_LOCAL = "local_only"
+    OPERATING_MODE_REPLICATED = "replicated"
+
+    MODES = (
+        (OPERATING_MODE_LOCAL, "Local Only"),
+        (OPERATING_MODE_REPLICATED, "Replicated"),
+    )
+
+    EXTERNAL_SYSTEMS = (
+        ("odoo", "Odoo"),
+        ("sage", "Sage"),
+    )
+
+    operating_mode = models.CharField(
+        db_column='OperatingMode',
+        max_length=30,
+        choices=MODES,
+        default=OPERATING_MODE_LOCAL,
+    )
+
+    external_system = models.CharField(
+        db_column='ExternalSystem',
+        max_length=30,
+        choices=EXTERNAL_SYSTEMS,
+        null=True,
+        blank=True,
+    )
+
+    currency_code = models.CharField(
+        db_column='CurrencyCode',
+        max_length=10,
+    )
+
+    retained_earnings_account = models.ForeignKey(
+        Account,
+        models.DO_NOTHING,
+        db_column='RetainedEarningsAccountID'
+    )
+
+    class Meta:
+        db_table = 'tblDeploymentConfiguration'
