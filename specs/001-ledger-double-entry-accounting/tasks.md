@@ -31,7 +31,7 @@ Single Django app module: `ledger/` (app package) with `models.py`, `services.py
 
 - [ ] T001 Create the `ledger` Django app package skeleton (`ledger/__init__.py`, `ledger/apps.py` with `LedgerConfig` + `DEFAULT_CFG` permission keys, `ledger/models.py`, `ledger/migrations/__init__.py`) per plan.md's Project Structure
 - [ ] T002 Write `setup.py` at repo root declaring `openimis-be-ledger` package metadata and dependencies (`django`, `django-hordak`, `django-db-signals`, `djangorestframework`, `graphene-django`, `celery`, `kombu`, `psycopg2`, `openimis-be-core`)
-- [ ] T003 [P] Add `ledger` to a local dev `openimis.json`/requirements reference so it installs alongside `openimis-be-core`, `django-hordak`, and a source module (e.g. `openimis-be-claim`) for integration testing
+- [X] T003 [P] ~~Add `ledger` to a local dev `openimis.json`/requirements reference so it installs alongside `openimis-be-core`, `django-hordak`, and a source module (e.g. `openimis-be-claim`) for integration testing~~ — N/A: `openimis.json` belongs to the umbrella `openimis-be_py` project, not this repo; out of scope here (2026-07-27 review)
 - [ ] T004 [P] Configure linting/formatting (`.flake8` or `pyproject.toml` black/isort config) consistent with sibling openIMIS modules
 
 **Checkpoint**: Package installs and Django recognizes the `ledger` app.
@@ -54,7 +54,7 @@ Single Django app module: `ledger/` (app package) with `models.py`, `services.py
 - [ ] T012 Generate initial Django migration for T006–T011 models in `ledger/migrations/0001_initial.py`
 - [ ] T013 Write a migration in `ledger/migrations/0002_partition_leg.py` applying Postgres declarative range partitioning to Hordak's `Leg` table, partitioned by `accounting_period_id`, with a partition created per `AccountingPeriod` (per research.md §4)
 - [ ] T014 Write a migration in `ledger/migrations/0003_balance_trigger.py` adding/confirming the deferrable Postgres trigger enforcing debit=credit balance on `Transaction`/`Leg` (verifying Hordak's own trigger is active; add a defense-in-depth closed-period write-rejection trigger per data-model.md's validation rules)
-- [ ] T015 [P] Register `AccountingPeriod`, `LedgerJournal`, `AnalyticAxis`, `AnalyticValue`, `DeploymentConfiguration` in `ledger/admin.py`
+- [X] T015 [P] ~~Register `AccountingPeriod`, `LedgerJournal`, `AnalyticAxis`, `AnalyticValue`, `DeploymentConfiguration` in `ledger/admin.py`~~ — N/A: no other openIMIS backend module uses Django Admin; the frontend/GraphQL surface is the only UI convention here (2026-07-27 review)
 - [ ] T016 [P] Unit tests for `AccountingPeriod`/`LedgerJournal`/`AnalyticAxis`/`AnalyticValue`/`LegTag`/`DeploymentConfiguration` model validation (uniqueness, axis constraint) in `ledger/tests/test_foundational_models.py`
 - [ ] T017 Unit/DB test proving the balance trigger rejects an unbalanced `Transaction`/`Leg` insert and that partitions exist per period, in `ledger/tests/test_partitioning.py` (depends on T013, T014)
 - [ ] T018 Implement base `LedgerEntryService` in `ledger/services.py` with a `post(journal, accounting_period, source_event_type, source_event_reference, legs, tags)` method that validates the target period is `open` (FR-008), constructs the Hordak `Transaction`/`Leg`s and `LedgerEntryMeta`, attaches `LegTag`s, and is decorated with `@register_service_signal("ledger_service.post_entry")` (depends on T009, T010)
@@ -247,8 +247,8 @@ Single Django app module: `ledger/` (app package) with `models.py`, `services.py
 
 ### Parallel Opportunities
 
-- All [P] Setup tasks (T003, T004) in parallel
-- Foundational [P] tasks: T007, T008, T011, T015, T016 in parallel once their model dependencies (T006 where relevant) exist
+- All [P] Setup tasks (T004) in parallel (T003 dropped as N/A)
+- Foundational [P] tasks: T007, T008, T011, T016 in parallel once their model dependencies (T006 where relevant) exist (T015 dropped as N/A)
 - Once Foundational (Phase 2) completes: US1, US4, and US5 can proceed in parallel; US2 and US3 have the noted P&L-snapshot ordering dependency between them
 - All test tasks within a story marked [P] can run in parallel (different assertions in the same or sibling test files, written before their implementation tasks)
 
