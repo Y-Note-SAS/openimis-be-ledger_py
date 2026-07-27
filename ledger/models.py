@@ -4,11 +4,10 @@ from django.db import models
 from hordak.models import Account, Leg, Transaction
 from django.core.exceptions import ValidationError
 
-class Sequence(core_models.VersionedModel):
+class Sequence(core_models.HistoryModel):
     """
     This is Sequence class it all the fields needed
     """
-    id = models.AutoField(db_column='SequenceID', primary_key=True)
     name = models.CharField(db_column='Name', max_length=100, blank=True, null=True, unique=True)
     code = models.CharField(db_column='Code', max_length=50, blank=True, null=True, unique=True)
     prefix = models.CharField(db_column='Prefix', max_length=50, blank=True, null=True)
@@ -19,7 +18,7 @@ class Sequence(core_models.VersionedModel):
         managed = True
         db_table = 'tblSequence'
 
-class AccountingPeriod(core_models.VersionedModel):
+class AccountingPeriod(core_models.HistoryModel):
     """
     Accounting period lifecycle management
     """
@@ -32,11 +31,6 @@ class AccountingPeriod(core_models.VersionedModel):
         (STATUS_OPEN, "Open"),
         (STATUS_LOCKED, "Locked"),
         (STATUS_CLOSED, "Closed"),
-    )
-
-    id = models.AutoField(
-        db_column='AccountingPeriodID',
-        primary_key=True
     )
 
     start_date = fields.DateField(
@@ -128,11 +122,10 @@ class AccountingPeriod(core_models.VersionedModel):
         managed = True
         db_table = 'tblAccountingPeriod'
 
-class LedgerJournal(core_models.VersionedModel):
+class LedgerJournal(core_models.HistoryModel):
     """
     This is Journal class it all the fields needed
     """
-    id = models.AutoField(db_column='LedgerJournalID', primary_key=True)
     name = models.CharField(db_column='Name', max_length=100, blank=True, null=True, unique=True)
     code = models.CharField(db_column='Code', max_length=50, blank=True, null=True, unique=True)
     type = models.CharField(db_column='Type', max_length=50, blank=True, null=True)
@@ -149,7 +142,7 @@ class LedgerJournal(core_models.VersionedModel):
     def __str__(self):
         return self.code or self.name or str(self.id)
 
-class AnalyticAxis(core_models.VersionedModel):
+class AnalyticAxis(core_models.HistoryModel):
     PARTY = "party"
     FUNDER = "funder"
 
@@ -158,7 +151,6 @@ class AnalyticAxis(core_models.VersionedModel):
         (FUNDER, "Funder"),
     )
 
-    id = models.AutoField(db_column='AnalyticAxisID', primary_key=True)
     code = models.CharField(
         db_column='Code',
         max_length=50,
@@ -174,7 +166,7 @@ class AnalyticAxis(core_models.VersionedModel):
         db_table = 'tblAnalyticAxis'
 
 
-class AnalyticValue(core_models.VersionedModel):
+class AnalyticValue(core_models.HistoryModel):
     PARTY_INSUREE_FAMILY = "insuree_family"
     PARTY_HEALTH_FACILITY = "health_facility"
     PARTY_PAYMENT_POINT_MANAGER = "payment_point_manager"
@@ -184,8 +176,6 @@ class AnalyticValue(core_models.VersionedModel):
         (PARTY_HEALTH_FACILITY, "Health Facility"),
         (PARTY_PAYMENT_POINT_MANAGER, "Payment Point Manager"),
     )
-
-    id = models.AutoField(db_column='AnalyticValueID', primary_key=True)
 
     axis = models.ForeignKey(
         AnalyticAxis,
@@ -236,11 +226,7 @@ class AnalyticValue(core_models.VersionedModel):
         db_table = 'tblAnalyticValue'
 
 
-class LegTag(core_models.VersionedModel):
-    id = models.AutoField(
-        db_column='LegTagID',
-        primary_key=True
-    )
+class LegTag(core_models.HistoryModel):
 
     leg = models.ForeignKey(
         Leg,
@@ -275,7 +261,7 @@ class LegTag(core_models.VersionedModel):
         db_table = 'tblLegTag'
 
 
-class LedgerEntryMeta(core_models.VersionedModel):
+class LedgerEntryMeta(core_models.HistoryModel):
     SOURCE_EVENT_TYPES = (
         ("claim_payment", "Claim Payment"),
         ("invoice", "Invoice"),
@@ -283,11 +269,6 @@ class LedgerEntryMeta(core_models.VersionedModel):
         ("payment_point_reconciliation", "Payment Point"),
         ("closing_entry", "Closing Entry"),
         ("correction", "Correction"),
-    )
-
-    id = models.AutoField(
-        db_column='LedgerEntryMetaID',
-        primary_key=True
     )
 
     transaction = models.OneToOneField(
@@ -335,7 +316,7 @@ class LedgerEntryMeta(core_models.VersionedModel):
         db_table = 'tblLedgerEntryMeta'
 
 
-class DeploymentConfiguration(core_models.VersionedModel):
+class DeploymentConfiguration(core_models.HistoryModel):
 
     OPERATING_MODE_LOCAL = "local_only"
     OPERATING_MODE_REPLICATED = "replicated"
@@ -348,11 +329,6 @@ class DeploymentConfiguration(core_models.VersionedModel):
     EXTERNAL_SYSTEMS = (
         ("odoo", "Odoo"),
         ("sage", "Sage"),
-    )
-
-    id = models.AutoField(
-        db_column='DeploymentConfigurationID',
-        primary_key=True
     )
 
     operating_mode = models.CharField(

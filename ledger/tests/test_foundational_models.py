@@ -9,29 +9,37 @@ from ledger.models import (
 )
 from ledger.models import Account
 from djmoney.money import Money
+from core.test_helpers import create_test_interactive_user
 
 class AnalyticAxisTest(TestCase):
 
     def test_code_unique(self):
-        AnalyticAxis.objects.create(
+        test_user = create_test_interactive_user()
+        analytic_axis = AnalyticAxis(
             code="party",
             name="Party"
         )
+        analytic_axis.save(username=test_user.username)
 
         with self.assertRaises(Exception):
-            AnalyticAxis.objects.create(
+            analytic_axis2 = AnalyticAxis(
                 code="party",
                 name="Duplicate"
             )
+            analytic_axis2.save(username=test_user.username)
 
 
 class AnalyticValueTest(TestCase):
 
+    def setUp(self):
+        self.test_user = create_test_interactive_user()
+
     def test_party_requires_party_type(self):
-        axis = AnalyticAxis.objects.create(
+        axis = AnalyticAxis(
             code="party",
             name="Party"
         )
+        axis.save(username=self.test_user.username)
 
         value = AnalyticValue(
             axis=axis,
@@ -43,10 +51,11 @@ class AnalyticValueTest(TestCase):
             value.clean()
 
     def test_funder_requires_funder_code(self):
-        axis = AnalyticAxis.objects.create(
+        axis = AnalyticAxis(
             code="funder",
             name="Funder"
         )
+        axis.save(username=self.test_user.username)
 
         value = AnalyticValue(
             axis=axis,
@@ -62,6 +71,7 @@ class LegTagConstraintTest(TestCase):
 
     def setUp(self):
 
+        self.test_user = create_test_interactive_user()
         self.account = Account.objects.create(
             code="1002",
             full_code="1002",
@@ -95,29 +105,33 @@ class LegTagConstraintTest(TestCase):
 
         leg = self.create_leg()
 
-        party_axis = AnalyticAxis.objects.create(
+        party_axis = AnalyticAxis(
             code="party",
             name="Party"
         )
+        party_axis.save(username=self.test_user.username)
 
-        first = AnalyticValue.objects.create(
+        first = AnalyticValue(
             axis=party_axis,
             party_type="health_facility",
             external_reference="1",
             display_name="HF1",
         )
+        first.save(username=self.test_user.username)
 
-        second = AnalyticValue.objects.create(
+        second = AnalyticValue(
             axis=party_axis,
             party_type="health_facility",
             external_reference="2",
             display_name="HF2",
         )
+        second.save(username=self.test_user.username)
 
-        LegTag.objects.create(
+        legtag = LegTag(
             leg=leg,
             analytic_value=first,
         )
+        legtag.save(username=self.test_user.username)
 
         duplicate = LegTag(
             leg=leg,

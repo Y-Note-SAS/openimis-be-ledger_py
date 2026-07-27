@@ -32,6 +32,7 @@ class LedgerEntryService:
         source_event_reference,
         legs,
         tags=None,
+        user=None,
     ):
         if accounting_period.status != AccountingPeriod.STATUS_OPEN:
             raise ClosedPeriodException(
@@ -63,21 +64,23 @@ class LedgerEntryService:
                 )
                 created_legs.append(leg)
 
-            meta = LedgerEntryMeta.objects.create(
+            meta = LedgerEntryMeta(
                 transaction=trx,
                 journal=journal,
                 accounting_period=accounting_period,
                 source_event_type=source_event_type,
                 source_event_reference=source_event_reference,
             )
+            meta.save(username=user.username)
 
             for leg, leg_tags in tags.items():
 
                 for analytic_value in leg_tags:
 
-                    LegTag.objects.create(
+                    legtag = LegTag(
                         leg=created_legs[leg],
                         analytic_value=analytic_value,
                     )
+                    legtag.save(username=user.username)
 
             return meta
