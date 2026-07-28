@@ -242,15 +242,25 @@ class LegTag(core_models.HistoryModel):
         related_name='leg_tags'
     )
 
+    axis = models.ForeignKey(
+        AnalyticAxis,
+        models.CASCADE,
+        db_column='AxisID',
+        editable=False,  # empêche modif manuelle en dehors de save()
+    )
+
+    def save(self, *args, **kwargs):
+        # Toujours resynchroniser axis depuis analytic_value avant de sauver
+        self.axis = self.analytic_value.axis
+        super().save(*args, **kwargs)
+
     def clean(self):
         existing = LegTag.objects.filter(
             leg=self.leg,
             analytic_value__axis=self.analytic_value.axis
         )
-
         if self.pk:
             existing = existing.exclude(pk=self.pk)
-
         if existing.exists():
             raise ValidationError(
                 f"Leg already contains a tag for axis "
@@ -259,6 +269,9 @@ class LegTag(core_models.HistoryModel):
 
     class Meta:
         db_table = 'tblLegTag'
+        constraints = [
+            models.UniqueConstraint(fields=["leg", "axis"], name="uniq_legtag_leg_axis")
+        ]
 
 
 class LedgerEntryMeta(core_models.HistoryModel):
