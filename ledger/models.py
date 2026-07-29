@@ -1,6 +1,7 @@
 from core import fields
 from core import models as core_models
 from django.db import models
+from django.db import connection
 from hordak.models import Account, Leg, Transaction
 from django.core.exceptions import ValidationError
 
@@ -249,9 +250,36 @@ class LegTag(core_models.HistoryModel):
         editable=False,  # empêche modif manuelle en dehors de save()
     )
 
+    # Dénormalisé depuis hordak_leg.accounting_period_id. Nécessaire pour
+    # la contrainte FK composite (leg_id, accounting_period_id) vers
+    # hordak_leg, désormais partitionnée par LIST sur accounting_period_id
+    # (cf. migration ledger/migrations/0002_partition_leg.py). Ce n'est
+    # PAS un ForeignKey Django classique : Leg (Hordak) n'expose pas ce
+    # champ côté ORM projet, la valeur est lue en SQL brut à la sauvegarde.
+    accounting_period_id = models.UUIDField(
+        db_column='AccountingPeriodID',
+        editable=False,
+    )
+
     def save(self, *args, **kwargs):
         # Toujours resynchroniser axis depuis analytic_value avant de sauver
         self.axis = self.analytic_value.axis
+
+        # Resynchroniser accounting_period_id depuis le Leg associé.
+        # Une fois fixé, on ne le réécrit pas à chaque save (évite un
+        # aller-retour SQL inutile) ; la valeur ne change pas dans le
+        # temps pour un Leg donné (une période comptable close ne bouge
+        # plus).
+        # if self.leg_id and self.accounting_period_id is None:
+        #     with connection.cursor() as cursor:
+        #         cursor.execute(
+        #             'SELECT accounting_period_id FROM hordak_leg WHERE id = %s',
+        #             [self.leg_id],
+        #         )
+        #         row = cursor.fetchone()
+        #         if row and row[0]:
+        #             self.accounting_period_id = row[0]
+
         super().save(*args, **kwargs)
 
     def clean(self):
@@ -272,6 +300,11 @@ class LegTag(core_models.HistoryModel):
         constraints = [
             models.UniqueConstraint(fields=["leg", "axis"], name="uniq_legtag_leg_axis")
         ]
+        # NOTE : la FK composite (leg_id, accounting_period_id) ->
+        # hordak_leg(id, accounting_period_id) n'est pas exprimable via
+        # ForeignKey Django (pas de support natif des FK multi-colonnes).
+        # Elle est ajoutée au niveau DB par RunSQL dans la migration
+        # ledger/migrations/0003_legtag_period_fk.py.
 
 
 class LedgerEntryMeta(core_models.HistoryModel):
