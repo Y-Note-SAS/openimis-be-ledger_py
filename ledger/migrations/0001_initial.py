@@ -15,7 +15,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('hordak', '0055_alter_leg_credit_alter_leg_currency_alter_leg_debit'),
+        ('hordak', '0054_check_debit_credit_positive'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
