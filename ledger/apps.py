@@ -6,6 +6,9 @@ import inspect
 MODULE_NAME = "ledger"
 
 DEFAULT_CFG = {
+    "gql_query_ledger_perms": ["131000"],
+    "gql_mutation_post_entry_perms": ["131001"],
+    "gql_mutation_manage_periods_perms": ["131002"],
 }
 
 CALCULATION_RULES = []
@@ -20,6 +23,9 @@ def read_all_calculation_rules():
 class LedgerConfig(AppConfig):
     name = MODULE_NAME
 
+    gql_query_ledger_perms = []
+    gql_mutation_post_entry_perms = []
+    gql_mutation_manage_periods_perms = []
 
     def __load_config(self, cfg):
         for field in cfg:

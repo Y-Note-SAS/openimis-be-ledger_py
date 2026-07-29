@@ -10,9 +10,14 @@ from ledger.models import (
     AccountingPeriod,
     Account,
     LedgerJournal,
-    Sequence
+    Sequence,
+    LegTag,
+    AnalyticValue,
+    AnalyticAxis
 )
 from core.test_helpers import create_test_interactive_user
+from django.core.exceptions import ValidationError
+from hordak.models import Leg
 
 class LedgerEntryServiceTests(TestCase):
 
@@ -42,6 +47,35 @@ class LedgerEntryServiceTests(TestCase):
         )
         self.sequence.save(username=self.test_user.username)
 
+        self.analytic_axis = AnalyticAxis(
+            code="party",
+            name="Party1"
+        )
+        self.analytic_axis.save(username=self.test_user.username)
+
+        self.analytic_axis2 = AnalyticAxis(
+            code="funder",
+            name="Party2"
+        )
+        self.analytic_axis2.save(username=self.test_user.username)
+
+        self.analytic = AnalyticValue(
+            axis_id=self.analytic_axis.uuid,
+            party_type="insuree_family",
+            funder_code="Test001",
+            external_reference="001",
+            display_name="test"
+        )
+        self.analytic.save(username=self.test_user.username)
+
+        self.analytic2 = AnalyticValue(
+            axis_id=self.analytic_axis2.uuid,
+            party_type="insuree_family",
+            funder_code="Test002",
+            external_reference="002",
+            display_name="test2"
+        )
+        self.analytic2.save(username=self.test_user.username)
 
         # Création du journal
         self.journal = LedgerJournal(
@@ -177,3 +211,69 @@ class LedgerEntryServiceTests(TestCase):
                 ],
                 user=self.test_user
             )
+
+    def test_unbalanced_entry_rejected(self):
+        with self.assertRaises(ValidationError) as ctx:
+
+            LedgerEntryService.post(
+                journal=self.journal,
+                accounting_period=self.open_period,
+                source_event_type="claim_payment",
+                source_event_reference="CLAIM-UNBALANCED",
+                legs=[
+                    {
+                        "account": self.cash_account,
+                        "amount": 100,
+                    },
+                    {
+                        "account": self.expense_account,
+                        "amount": -50,
+                    },
+                ],
+                user=self.test_user,
+            )
+
+        self.assertIn(
+            "balanced",
+            str(ctx.exception).lower(),
+        )
+
+
+    def test_tags_are_attached_to_legs(self):
+        result = LedgerEntryService.post(
+            journal=self.journal,
+            accounting_period=self.open_period,
+            source_event_type="claim_payment",
+            source_event_reference="CLAIM-TAGS",
+            legs=self.valid_legs,
+            tags={
+                0: [self.analytic],
+                1: [self.analytic2],
+            },
+            user=self.test_user,
+        )
+
+        self.assertIsNotNone(result.pk)
+
+        self.assertEqual(
+            LegTag.objects.count(),
+            2,
+        )
+
+        legs = Leg.objects.filter(
+            transaction=result.transaction
+        )
+
+        self.assertEqual(
+            LegTag.objects.filter(
+                leg=legs[0]
+            ).count(),
+            1,
+        )
+
+        self.assertEqual(
+            LegTag.objects.filter(
+                leg=legs[1]
+            ).count(),
+            1,
+        )
