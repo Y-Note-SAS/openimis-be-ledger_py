@@ -6,6 +6,7 @@ from ledger.models import (
     AnalyticAxis,
     AnalyticValue,
     LegTag,
+    AccountingPeriod
 )
 from ledger.models import Account
 from djmoney.money import Money
@@ -85,6 +86,12 @@ class LegTagConstraintTest(TestCase):
             full_code="6003"
         )
 
+        self.open_period = AccountingPeriod(
+            name="2026-01",
+            status=AccountingPeriod.STATUS_OPEN,
+        )
+        self.open_period.save(username=self.test_user.username)
+
     def create_leg(self):
 
         Leg.objects.create(
@@ -128,12 +135,14 @@ class LegTagConstraintTest(TestCase):
         second.save(username=self.test_user.username)
 
         legtag = LegTag(
+            accounting_period_id=self.open_period.uuid,
             leg=leg,
             analytic_value=first,
         )
         legtag.save(username=self.test_user.username)
 
         duplicate = LegTag(
+            accounting_period_id=self.open_period.uuid,
             leg=leg,
             analytic_value=second,
         )
