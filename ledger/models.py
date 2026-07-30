@@ -264,6 +264,7 @@ class LegTag(core_models.HistoryModel):
     def save(self, *args, **kwargs):
         # Toujours resynchroniser axis depuis analytic_value avant de sauver
         self.axis = self.analytic_value.axis
+        self.clean()
 
         # Resynchroniser accounting_period_id depuis le Leg associé.
         # Une fois fixé, on ne le réécrit pas à chaque save (évite un

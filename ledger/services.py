@@ -17,6 +17,8 @@ from djmoney.money import Money
 class MissingAccountMappingException(Exception):
     pass
 
+class MissingDeploymentConfigurationException(Exception):
+    pass
 
 class ClosedPeriodException(Exception):
     pass
@@ -71,10 +73,11 @@ class LedgerEntryService:
             )
 
         deployment_config = DeploymentConfiguration.objects.first()
-        if deployment_config:
-            currency_code = deployment_config.currency_code
-        else:
-            currency_code = "EUR"
+        if not deployment_config:
+            raise MissingDeploymentConfigurationException(
+                "DeploymentConfiguration is required before posting ledger entries"
+            )
+        currency_code = deployment_config.currency_code
 
         tags = tags or {}
 
