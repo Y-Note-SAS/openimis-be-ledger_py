@@ -4,6 +4,7 @@ from ledger.services import (
     LedgerEntryService,
     ClosedPeriodException,
     MissingAccountMappingException,
+    MissingDeploymentConfigurationException
 )
 
 from ledger.models import (
@@ -13,11 +14,13 @@ from ledger.models import (
     Sequence,
     LegTag,
     AnalyticValue,
-    AnalyticAxis
+    AnalyticAxis,
+    DeploymentConfiguration
 )
 from core.test_helpers import create_test_interactive_user
 from django.core.exceptions import ValidationError
 from hordak.models import Leg
+from decimal import Decimal
 
 class LedgerEntryServiceTests(TestCase):
 
@@ -124,7 +127,11 @@ class LedgerEntryServiceTests(TestCase):
             },
         ]
 
-
+        config = DeploymentConfiguration(
+            currency_code="EUR",
+            retained_earnings_account=self.cash_account
+        )
+        config.save(username=self.test_user.username)
 
     def test_successful_balanced_post(self):
 
@@ -277,3 +284,67 @@ class LedgerEntryServiceTests(TestCase):
             ).count(),
             1,
         )
+
+class LedgerEntryServiceTest(TestCase):
+
+    def setUp(self):
+
+        self.test_user = create_test_interactive_user()
+
+        self.sequence = Sequence(
+            code="GL2",
+            name="General Ledger2"
+        )
+        self.sequence.save(username=self.test_user.username)
+
+        self.cash_account = Account.objects.create(
+            code="2003",
+            full_code="2003",
+            name="Cash Account2",
+        )
+
+        self.expense_account = Account.objects.create(
+            code="3003",
+            full_code="3003",
+            name="Expense Account2",
+        )
+
+        self.journal = LedgerJournal(
+            code="GENERAL1",
+            name="General Journal1",
+            sequence_id=self.sequence,
+            default_credit_account_id=self.cash_account,
+            default_debit_account_id=self.expense_account,
+        )
+        self.journal.save(username=self.test_user.username)
+
+        self.period = AccountingPeriod(
+            code="2021-05",
+            status=AccountingPeriod.STATUS_OPEN,
+        )
+        self.period.save(username=self.test_user.username)
+
+    def test_post_requires_deployment_configuration(self):
+
+        DeploymentConfiguration.objects.all().delete()
+
+        with self.assertRaises(
+            MissingDeploymentConfigurationException
+        ):
+            LedgerEntryService.post(
+                journal=self.journal,
+                accounting_period=self.period,
+                source_event_type="invoice",
+                source_event_reference="INV-001",
+                legs=[
+                    {
+                        "account": self.expense_account,
+                        "amount": Decimal("100"),
+                    },
+                    {
+                        "account": self.cash_account,
+                        "amount": Decimal("-100"),
+                    },
+                ],
+                user=self.test_user,
+            )

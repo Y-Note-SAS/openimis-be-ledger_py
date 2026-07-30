@@ -6,7 +6,10 @@ from ledger.models import (
     AnalyticAxis,
     AnalyticValue,
     LegTag,
-    AccountingPeriod
+    AccountingPeriod,
+    LedgerJournal,
+    Sequence,
+    DeploymentConfiguration
 )
 from ledger.models import Account
 from djmoney.money import Money
@@ -149,3 +152,114 @@ class LegTagConstraintTest(TestCase):
 
         with self.assertRaises(ValidationError):
             duplicate.clean()
+
+class AccountingPeriodModelTest(TestCase):
+
+    def setUp(self):
+        self.test_user = create_test_interactive_user()
+
+    def test_is_open(self):
+        period = AccountingPeriod(
+            name="2026-02",
+            status=AccountingPeriod.STATUS_OPEN
+        )
+        period.save(username=self.test_user.username)
+        self.assertTrue(period.is_open)
+        self.assertFalse(period.is_locked)
+        self.assertFalse(period.is_closed)
+
+    def test_is_locked(self):
+        period = AccountingPeriod(
+            name="2026-03",
+            status=AccountingPeriod.STATUS_LOCKED
+        )
+        period.save(username=self.test_user.username)
+        self.assertTrue(period.is_locked)
+
+    def test_is_closed(self):
+        period = AccountingPeriod(
+            name="2026-03",
+            status=AccountingPeriod.STATUS_CLOSED
+        )
+        period.save(username=self.test_user.username)
+        self.assertTrue(period.is_closed)
+
+class LedgerJournalModelTest(TestCase):
+
+    def setUp(self):
+
+        self.test_user = create_test_interactive_user()
+
+        self.sequence = Sequence(
+            code="PS",
+            name="Purchase seq"
+        )
+        self.sequence.save(username=self.test_user.username)
+
+        self.cash_account = Account.objects.create(
+            code="2003",
+            full_code="2003",
+            name="Cash Account2",
+        )
+
+        self.expense_account = Account.objects.create(
+            code="3003",
+            full_code="3003",
+            name="Expense Account2",
+        )
+
+
+    def test_str_returns_code_first(self):
+        journal1 = LedgerJournal(
+            code="PURCHASE",
+            name="Purchase Journal",
+            sequence_id=self.sequence,
+            default_credit_account_id=self.cash_account,
+            default_debit_account_id=self.expense_account,
+        )
+        journal1.save(username=self.test_user.username)
+        self.assertEqual(str(journal1), "PURCHASE")
+
+    def test_str_returns_name_when_code_missing(self):
+        journal = LedgerJournal(
+            name="Purchase Journal 2",
+            sequence_id=self.sequence,
+            default_credit_account_id=self.cash_account,
+            default_debit_account_id=self.expense_account,
+        )
+        journal.save(username=self.test_user.username)
+        self.assertEqual(str(journal), "Purchase Journal 2")
+
+class DeploymentConfigurationTest(TestCase):
+
+    def setUp(self):
+
+        self.test_user = create_test_interactive_user()
+
+        self.account = Account.objects.create(
+            code="4002",
+            full_code="4002",
+            name="Cash 2"
+        )
+        self.transaction = Transaction.objects.create()
+
+    def test_default_operating_mode(self):
+        config = DeploymentConfiguration(
+            currency_code="EUR",
+            retained_earnings_account=self.account
+        )
+        config.save(username=self.test_user.username)
+        self.assertEqual(
+            config.operating_mode,
+            DeploymentConfiguration.OPERATING_MODE_LOCAL
+        )
+
+    def test_modes_constants(self):
+        self.assertEqual(
+            DeploymentConfiguration.OPERATING_MODE_LOCAL,
+            "local_only"
+        )
+        self.assertEqual(
+            DeploymentConfiguration.OPERATING_MODE_REPLICATED,
+            "replicated"
+        )
