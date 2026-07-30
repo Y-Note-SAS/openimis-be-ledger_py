@@ -9,7 +9,7 @@ os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__), os.pardir)))
 
 setup(
     name='openimis-be-ledger',
-    version='1.0.0',
+    version='1.0.1',
     packages=find_packages(),
     include_package_data=True,
     license='GNU AGPL v3',
@@ -23,19 +23,21 @@ setup(
         'django-hordak',
         'djangorestframework',
         'openimis-be-claim',
-        'openimis-be-invoice',
         'openimis-be-core',
         'graphene-django',
+        'django-db-signals',
+        'celery',
+        'kombu',
+        'psycopg2-binary'
     ],
     classifiers=[
         'Environment :: Web Environment',
         'Framework :: Django',
-        'Framework :: Django :: 3.0',
+        'Framework :: Django :: 4.2',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: GNU Affero General Public License v3',
         'Operating System :: OS Independent',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.10',
     ],
 )
