@@ -24,6 +24,7 @@ on_payment_point_reconciled,
 )
 
 from core.test_helpers import create_test_interactive_user
+from claim.models import Claim
 
 class PostingSignalsTest(TestCase):
 
@@ -107,6 +108,7 @@ class PostingSignalsTest(TestCase):
             uuid="claim-001",
             valuated=Decimal("100"),
             approved=Decimal("100"),
+            status=Claim.STATUS_VALUATED
         )
 
         on_claim_valuated(
@@ -235,6 +237,7 @@ class PostingSignalsTest(TestCase):
             uuid="claim-001",
             valuated=Decimal("0"),
             approved=Decimal("0"),
+            status=Claim.STATUS_VALUATED
         )
 
         on_claim_valuated(
@@ -299,6 +302,20 @@ class PostingSignalsTest(TestCase):
             LedgerEntryMeta.objects.exists()
         )
 
+    def test_claim_not_valuated_skipped(self):
+
+        claim = SimpleNamespace(status=Claim.STATUS_PROCESSED)
+
+        on_claim_valuated(
+            sender=None,
+            claim=claim,
+            user=self.user,
+        )
+
+        self.assertFalse(
+            LedgerEntryMeta.objects.exists()
+        )
+
     # ------------------------------------------------------------------
     # T025
     # ------------------------------------------------------------------
@@ -316,6 +333,7 @@ class PostingSignalsTest(TestCase):
             uuid="claim-001",
             valuated=Decimal("100"),
             approved=Decimal("100"),
+            status=Claim.STATUS_VALUATED
         )
 
         on_claim_valuated(

@@ -12,6 +12,7 @@ from ledger.models import (
 from core.signals import bind_service_signal
 from ledger.services import LedgerEntryService
 from core.service_signals import ServiceSignalBindType
+from claim.models import Claim
 
 def resolve_accounts(journal):
     return {
@@ -91,6 +92,9 @@ def on_claim_valuated(
     user,
     **kwargs,
 ):
+    if claim.status != Claim.STATUS_VALUATED:
+        logger.info("Skipped Claim because its not valuated")
+        return
     logger.info("Claim valuated received")
 
     amount = Decimal(str(
