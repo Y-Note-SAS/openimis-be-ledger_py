@@ -1,9 +1,11 @@
 from core import fields
 from core import models as core_models
 from django.db import models
+import logging
 from django.db import connection
 from hordak.models import Account, Leg, Transaction
 from django.core.exceptions import ValidationError
+logger = logging.getLogger(__name__)
 
 class Sequence(core_models.HistoryModel):
     """
@@ -406,3 +408,28 @@ class DeploymentConfiguration(core_models.HistoryModel):
 
     class Meta:
         db_table = 'tblDeploymentConfiguration'
+
+class UnmappedFinancialEvent(core_models.HistoryModel):
+
+    EVENT_STATUS_PENDING = "PENDING"
+    EVENT_STATUS_RESOLVED = "RESOLVED"
+
+    event_type = models.CharField(
+        max_length=100
+    )
+
+    source_reference = models.CharField(
+        max_length=255
+    )
+
+    payload = models.JSONField(
+        default=dict
+    )
+
+    status = models.CharField(
+        max_length=20,
+        default=EVENT_STATUS_PENDING
+    )
+
+    class Meta:
+        db_table = "ledger_unmapped_event"
