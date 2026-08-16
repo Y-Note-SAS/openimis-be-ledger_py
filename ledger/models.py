@@ -233,21 +233,21 @@ class LegTag(core_models.HistoryModel):
 
     leg = models.ForeignKey(
         Leg,
-        models.CASCADE,
+        models.DO_NOTHING,
         db_column='LegID',
         related_name='analytic_tags'
     )
 
     analytic_value = models.ForeignKey(
         AnalyticValue,
-        models.CASCADE,
+        models.DO_NOTHING,
         db_column='AnalyticValueID',
         related_name='leg_tags'
     )
 
     axis = models.ForeignKey(
         AnalyticAxis,
-        models.CASCADE,
+        models.DO_NOTHING,
         db_column='AxisID',
         editable=False,  # empêche modif manuelle en dehors de save()
     )
@@ -322,7 +322,7 @@ class LedgerEntryMeta(core_models.HistoryModel):
 
     transaction = models.OneToOneField(
         Transaction,
-        models.CASCADE,
+        models.DO_NOTHING,
         db_column='TransactionID',
         related_name='ledger_meta'
     )
