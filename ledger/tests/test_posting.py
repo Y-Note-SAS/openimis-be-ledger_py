@@ -145,14 +145,6 @@ class PostingSignalsTest(TestCase):
 
     def test_claim_valuated_posts_balanced_entry(self):
 
-        # claim = SimpleNamespace(
-        #     uuid="claim-001",
-        #     valuated=Decimal("100"),
-        #     approved=Decimal("100"),
-        #     status=Claim.STATUS_VALUATED,
-        #     date_claimed="2021-02-01"
-        # )
-
         on_claim_valuated(
             sender=None,
             claim=self.claim,
