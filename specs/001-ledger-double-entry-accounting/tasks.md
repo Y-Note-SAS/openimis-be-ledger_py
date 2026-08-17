@@ -103,19 +103,19 @@ Single Django app module: `ledger/` (app package) with `models.py`, `services.py
 
 ### Tests for User Story 2
 
-- [ ] T034 [P] [US2] Unit test: `PartyLedgerBalance` updates incrementally and correctly on each tagged `Leg` insert, in `ledger/tests/test_tagging.py`
-- [ ] T035 [P] [US2] Unit test: `AccountBalanceSnapshot` updates incrementally per account/period, in `ledger/tests/test_tagging.py`
-- [ ] T036 [P] [US2] Integration test: a line tagged with both party and funder is independently queryable on each axis, in `ledger/tests/test_tagging.py`
-- [ ] T037 [P] [US2] Integration test: an untagged line is excluded from party/funder-filtered reports but included in general ledger totals, in `ledger/tests/test_tagging.py`
-- [ ] T038 [P] [US2] GraphQL contract test for `ledgerEntries`, `partyLedgerBalance`, `funderActivityReport` queries in `ledger/tests/test_gql_reporting.py`
+- [x] T034 [P] [US2] Unit test: `PartyLedgerBalance` updates incrementally and correctly on each tagged `Leg` insert, in `ledger/tests/test_ledger_entry_service.py` (`test_post_updates_party_balance`)
+- [x] T035 [P] [US2] Unit test: `AccountBalanceSnapshot` updates incrementally per account/period, in `ledger/tests/test_ledger_entry_service.py` (`test_post_updates_account_balance_snapshot`)
+- [ ] T036 [P] [US2] Integration test: a line tagged with both party and funder is independently queryable on each axis, in `ledger/tests/test_tagging.py` — NOT DONE: no dedicated test found; see T038/funder-report gap below
+- [ ] T037 [P] [US2] Integration test: an untagged line is excluded from party/funder-filtered reports but included in general ledger totals, in `ledger/tests/test_tagging.py` — NOT DONE: `funder_activity_report` sums whole-`AccountBalanceSnapshot` totals per account, so an untagged leg posted to the same account as a funder-tagged leg leaks into the funder total (review finding, ledger/gql_queries.py:78)
+- [ ] T038 [P] [US2] GraphQL contract test for `ledgerEntries`, `partyLedgerBalance`, `funderActivityReport` queries in `ledger/tests/test_gql_reporting.py` — PARTIAL: tests exist in `ledger/tests/test_gql_queries.py`, but a duplicate `FunderActivityReportQueryTest` class name (lines 22 and 403) silently shadows 6 of the tests so they never run; `ledgerEntries` filtering (journal/party/funder/sourceEventType) is untested since it isn't implemented (see T042)
 
 ### Implementation for User Story 2
 
-- [ ] T039 [P] [US2] Implement `PartyLedgerBalance` model in `ledger/models.py` and migration in `ledger/migrations/0004_balance_tables.py`
-- [ ] T040 [P] [US2] Implement `AccountBalanceSnapshot` model in `ledger/models.py` (same migration as T039)
-- [ ] T041 [US2] Implement synchronous balance-maintenance logic in `LedgerEntryService.post()` that upserts `PartyLedgerBalance`/`AccountBalanceSnapshot` rows within the same DB transaction as the `Leg` insert (depends on T018, T039, T040)
-- [ ] T042 [US2] Implement `ledger/gql_queries.py` with `ledgerEntries(journal, accountingPeriod, party, funder, sourceEventType)`, `partyLedgerBalance(analyticValueId, accountingPeriod)`, `funderActivityReport(analyticValueId, accountingPeriod)` resolvers, per contracts/graphql-api.md (depends on T039, T040, T041)
-- [ ] T043 [US2] Wire query types/root into `ledger/schema.py` (depends on T042)
+- [x] T039 [P] [US2] Implement `PartyLedgerBalance` model in `ledger/models.py` and migration in `ledger/migrations/0004_balance_tables.py` (delivered via `ledger/migrations/0006_partyledgerbalance_historicalpartyledgerbalance_and_more.py`)
+- [x] T040 [P] [US2] Implement `AccountBalanceSnapshot` model in `ledger/models.py` (same migration as T039)
+- [x] T041 [US2] Implement synchronous balance-maintenance logic in `LedgerEntryService.post()` that upserts `PartyLedgerBalance`/`AccountBalanceSnapshot` rows within the same DB transaction as the `Leg` insert (depends on T018, T039, T040)
+- [ ] T042 [US2] Implement `ledger/gql_queries.py` with `ledgerEntries(journal, accountingPeriod, party, funder, sourceEventType)`, `partyLedgerBalance(analyticValueId, accountingPeriod)`, `funderActivityReport(analyticValueId, accountingPeriod)` resolvers, per contracts/graphql-api.md (depends on T039, T040, T041) — PARTIAL: resolvers exist but `ledgerEntries` has no working filters (`filter_fields` is empty) and `funderActivityReport` has a data-leakage bug (see review findings)
+- [ ] T043 [US2] Wire query types/root into `ledger/schema.py` (depends on T042) — NOT DONE: `ledger/schema.py` is an empty file; the `Query` class in `gql_queries.py` is never exposed via GraphQL
 
 **Checkpoint**: User Stories 1 AND 2 both work independently; reporting is fast via pre-aggregated tables.
 
