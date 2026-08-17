@@ -15,7 +15,8 @@ Sequence,
 DeploymentConfiguration,
 UnmappedFinancialEvent,
 AnalyticAxis,
-AnalyticValue
+AnalyticValue,
+LegTag
 )
 from claim.test_helpers import create_test_claim
 from ledger.signals import (
@@ -541,7 +542,6 @@ class PostingSignalsTest(TestCase):
         mock_resolve_party_tag,
         mock_post,
     ):
-
         party_axis = AnalyticAxis(
             code=AnalyticAxis.PARTY,
             name="Party",
@@ -565,7 +565,7 @@ class PostingSignalsTest(TestCase):
                     "id": "INV001",
                     "amount_total": "100",
                     "health_facility_id": "HF001",
-                    "invoice_date": "2021-02-01"
+                    "invoice_date": "2021-02-01",
                 }
             },
             user=self.user,
@@ -575,8 +575,55 @@ class PostingSignalsTest(TestCase):
 
         tags = mock_post.call_args.kwargs["tags"]
 
-        self.assertIn(party_value, tags[0])
-        self.assertIn(party_value, tags[1])
+        self.assertEqual(
+            tags,
+            {
+                0: [party_value],
+                1: [party_value],
+            },
+        )
+
+
+    @patch(
+        "ledger.signals.resolve_party_tag",
+        return_value=None,
+    )
+    def test_invoice_issued_posts_without_party_tag_when_health_facility_is_unmapped(
+        self,
+        mock_resolve_party_tag,
+    ):
+        on_invoice_issued(
+            sender=None,
+            result={
+                "data": {
+                    "id": "INV001",
+                    "amount_total": "250",
+                    "invoice_date": "2021-02-01",
+                    "health_facility_id": "UNKNOWN-HF",
+                }
+            },
+            user=self.user,
+        )
+
+        # L'écriture doit quand même être créée.
+        meta = LedgerEntryMeta.objects.get()
+
+        self.assertEqual(
+            meta.journal.code,
+            "Sales",
+        )
+
+        # Aucun tag PARTY ne doit être créé.
+        self.assertEqual(
+            LegTag.objects.count(),
+            0,
+        )
+
+        # Le resolver doit bien avoir été appelé.
+        mock_resolve_party_tag.assert_called_once_with(
+            "UNKNOWN-HF",
+            AnalyticValue.PARTY_HEALTH_FACILITY,
+        )
 
 
     @patch("ledger.signals.LedgerEntryService.post")
