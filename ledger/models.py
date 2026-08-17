@@ -4,6 +4,10 @@ from django.db import models
 import logging
 from django.db import connection
 from hordak.models import Account, Leg, Transaction
+from hordak.defaults import (
+    DECIMAL_PLACES,
+    MAX_DIGITS
+)
 from django.core.exceptions import ValidationError
 logger = logging.getLogger(__name__)
 
@@ -233,21 +237,21 @@ class LegTag(core_models.HistoryModel):
 
     leg = models.ForeignKey(
         Leg,
-        models.CASCADE,
+        models.DO_NOTHING,
         db_column='LegID',
         related_name='analytic_tags'
     )
 
     analytic_value = models.ForeignKey(
         AnalyticValue,
-        models.CASCADE,
+        models.DO_NOTHING,
         db_column='AnalyticValueID',
         related_name='leg_tags'
     )
 
     axis = models.ForeignKey(
         AnalyticAxis,
-        models.CASCADE,
+        models.DO_NOTHING,
         db_column='AxisID',
         editable=False,  # empêche modif manuelle en dehors de save()
     )
@@ -322,7 +326,7 @@ class LedgerEntryMeta(core_models.HistoryModel):
 
     transaction = models.OneToOneField(
         Transaction,
-        models.CASCADE,
+        models.DO_NOTHING,
         db_column='TransactionID',
         related_name='ledger_meta'
     )
@@ -433,3 +437,96 @@ class UnmappedFinancialEvent(core_models.HistoryModel):
 
     class Meta:
         db_table = "ledger_unmapped_event"
+
+
+class PartyLedgerBalance(core_models.HistoryModel):
+    accounting_period = models.ForeignKey(
+        AccountingPeriod,
+        models.DO_NOTHING,
+        db_column="AccountingPeriodID",
+        related_name="party_balances"
+    )
+
+    analytic_value = models.ForeignKey(
+        AnalyticValue,
+        models.DO_NOTHING,
+        db_column="AnalyticValueID",
+        related_name="party_balances"
+    )
+
+    debit_amount = models.DecimalField(
+        max_digits=MAX_DIGITS,
+        decimal_places=DECIMAL_PLACES,
+        default=0
+    )
+
+    credit_amount = models.DecimalField(
+        max_digits=MAX_DIGITS,
+        decimal_places=DECIMAL_PLACES,
+        default=0
+    )
+
+    balance_amount = models.DecimalField(
+        max_digits=MAX_DIGITS,
+        decimal_places=DECIMAL_PLACES,
+        default=0
+    )
+
+    class Meta:
+        db_table = "tblPartyLedgerBalance"
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "accounting_period",
+                    "analytic_value"
+                ],
+                name="uniq_party_balance"
+            )
+        ]
+
+
+class AccountBalanceSnapshot(core_models.HistoryModel):
+
+    accounting_period = models.ForeignKey(
+        AccountingPeriod,
+        models.DO_NOTHING,
+        db_column="AccountingPeriodID"
+    )
+
+    account = models.ForeignKey(
+        Account,
+        models.DO_NOTHING,
+        db_column="AccountID"
+    )
+
+    debit_amount = models.DecimalField(
+        max_digits=MAX_DIGITS,
+        decimal_places=DECIMAL_PLACES,
+        default=0
+    )
+
+    credit_amount = models.DecimalField(
+        max_digits=MAX_DIGITS,
+        decimal_places=DECIMAL_PLACES,
+        default=0
+    )
+
+    balance_amount = models.DecimalField(
+        max_digits=MAX_DIGITS,
+        decimal_places=DECIMAL_PLACES,
+        default=0
+    )
+
+    class Meta:
+        db_table = "tblAccountBalanceSnapshot"
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "accounting_period",
+                    "account"
+                ],
+                name="uniq_account_snapshot"
+            )
+        ]

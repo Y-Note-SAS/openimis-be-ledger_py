@@ -7,18 +7,45 @@ from ledger.models import (
     AccountingPeriod,
     LedgerJournal,
     UnmappedFinancialEvent,
-    DeploymentConfiguration
+    DeploymentConfiguration,
+    AnalyticAxis,
+    AnalyticValue
 )
 from core.signals import bind_service_signal
 from ledger.services import LedgerEntryService
 from core.service_signals import ServiceSignalBindType
 from claim.models import Claim
+from policyholder.models import PolicyHolder
+from django.db.models import Q
+from datetime import datetime as py_datetime
 
 def resolve_accounts(journal):
     return {
         "debit": journal.default_debit_account_id,
         "credit": journal.default_credit_account_id,
     }
+
+def resolve_party_tag(external_reference, party_type):
+    return (
+        AnalyticValue.objects
+        .filter(
+            axis__code=AnalyticAxis.PARTY,
+            external_reference=external_reference,
+            party_type=party_type,
+        )
+        .first()
+    )
+
+
+def resolve_funder_tag(funder_code):
+    return (
+        AnalyticValue.objects
+        .filter(
+            axis__code=AnalyticAxis.FUNDER,
+            funder_code=funder_code,
+        )
+        .first()
+    )
 
 def raise_unmapped(
         event_type,
@@ -27,7 +54,7 @@ def raise_unmapped(
         user
     ):
 
-    print("payload ", payload, " and ", event_type)
+    payload.pop("user", None)
     unmaped = UnmappedFinancialEvent(
         event_type=event_type,
         source_reference=source_reference,
@@ -45,11 +72,15 @@ def raise_unmapped(
 
 logger = logging.getLogger(__name__)
 
-def get_open_period():
+def get_open_period(transaction_date):
+
     return (
         AccountingPeriod.objects
-        .filter(status=AccountingPeriod.STATUS_OPEN)
-        .order_by("-date_created")
+        .filter(
+            status=AccountingPeriod.STATUS_OPEN,
+            start_date__lte=transaction_date,
+            end_date__gte=transaction_date,
+        )
         .first()
     )
 
@@ -122,7 +153,14 @@ def on_claim_valuated(
         code=mapping["journal"]
     )
 
-    period = get_open_period()
+    period = get_open_period(claim.date_claimed)
+    if not period:
+        return raise_unmapped(
+            "claim_valuated",
+            str(claim.uuid),
+            kwargs,
+            user,
+        )
 
     logger.info(
         "Financial event received",
@@ -132,12 +170,44 @@ def on_claim_valuated(
         },
     )
 
+    tags = {}
+
+    party_tag = resolve_party_tag(
+        claim.health_facility.uuid,
+        AnalyticValue.PARTY_HEALTH_FACILITY,
+    )
+
+    resolved_tags = []
+
+    if party_tag:
+        resolved_tags.append(party_tag)
+
+    today = py_datetime.now()
+    policy_holder = PolicyHolder.objects.filter(
+        is_deleted=False
+    ).filter(
+        Q(date_valid_to__isnull=True) |
+        Q(date_valid_to__date__gte=today.date())
+    ).first()
+
+    if policy_holder:
+        funder_tag = resolve_funder_tag(policy_holder.code)
+        if funder_tag:
+            resolved_tags.append(funder_tag)
+
+    if resolved_tags:
+        tags = {
+            0: resolved_tags,
+            1: resolved_tags,
+        }
+
     result = LedgerEntryService.post(
         journal=journal,
         accounting_period=period,
         source_event_type="claim_valuated",
         source_event_reference=str(claim.uuid),
         user=user,
+        tags=tags,
         legs=[
             {
                 "account": mapping["credit_account"],
@@ -183,20 +253,37 @@ def on_invoice_issued(
         "invoice_issued",
         kwargs,
     )
+    user = kwargs.get("user", None)
 
     if not mapping:
         return raise_unmapped(
             "invoice_issued",
             str(invoice["id"]),
             kwargs,
-            "user"
+            user
         )
 
     journal = LedgerJournal.objects.get(
         code=mapping["journal"]
     )
 
-    period = get_open_period()
+    period = get_open_period(invoice["invoice_date"])
+    if not period:
+        return raise_unmapped(
+            "invoice_issued",
+            str(invoice["id"]),
+            kwargs,
+            user
+        )
+
+    party_tag = resolve_party_tag(
+        invoice["health_facility_id"],
+        AnalyticValue.PARTY_HEALTH_FACILITY,
+    )
+    tags = {
+        0: [party_tag],
+        1: [party_tag],
+    }
 
     result = LedgerEntryService.post(
         journal=journal,
@@ -206,6 +293,7 @@ def on_invoice_issued(
             invoice["id"]
         ),
         user=kwargs["user"],
+        tags=tags,
         legs=[
             {
                 "account": mapping["credit_account"],
@@ -253,7 +341,14 @@ def on_payroll_disbursed(
         code=mapping["journal"]
     )
 
-    period = get_open_period()
+    period = get_open_period(kwargs["payroll_date"])
+    if not period:
+        return raise_unmapped(
+            "payroll_disbursement",
+            str(kwargs.get("payroll_id")),
+            kwargs,
+            user
+        )
 
     logger.info(
         "Financial event received",
@@ -262,6 +357,18 @@ def on_payroll_disbursed(
             "reference": kwargs.get("payroll_id")
         }
     )
+    party_tag = resolve_party_tag(
+        kwargs["payment_point_manager_id"],
+        AnalyticValue.PARTY_PAYMENT_POINT_MANAGER,
+    )
+
+    tags = {}
+
+    if party_tag:
+        tags = {
+            0: [party_tag],
+            1: [party_tag],
+        }
     result = LedgerEntryService.post(
         journal=journal,
         accounting_period=period,
@@ -270,6 +377,7 @@ def on_payroll_disbursed(
             kwargs.get("payroll_id")
         ),
         user=user,
+        tags=tags,
         legs=[
             {
                 "account": mapping["credit_account"],
@@ -324,7 +432,14 @@ def on_payment_point_reconciled(
         code=mapping["journal"]
     )
 
-    period = get_open_period()
+    period = get_open_period(kwargs["payroll_date"])
+    if not period:
+        return raise_unmapped(
+            "payment_point_reconciliation",
+            str(kwargs.get("payroll_id")),
+            kwargs,
+            user
+        )
 
     legs = [
         {
@@ -354,6 +469,19 @@ def on_payment_point_reconciled(
             }
         )
 
+    party_tag = resolve_party_tag(
+        kwargs["payment_point_manager_id"],
+        AnalyticValue.PARTY_PAYMENT_POINT_MANAGER
+    )
+
+    tags = {}
+
+    if party_tag:
+        tags = {
+            0: [party_tag],
+            1: [party_tag],
+        }
+
     result = LedgerEntryService.post(
         journal=journal,
         accounting_period=period,
@@ -363,6 +491,7 @@ def on_payment_point_reconciled(
         ),
         user=user,
         legs=legs,
+        tags=tags
     )
     logger.info("Entry for payment_point_reconciliation posted with result %s", result)
 
@@ -385,17 +514,9 @@ def bind_service_signals():
         on_payroll_disbursed,
         bind_type=ServiceSignalBindType.AFTER
     )
-    # @register_service_signal(
-    #     "payroll.disbursed"
-    # )
-    # def approve_for_payment_benefit_consumption(...)
 
     bind_service_signal(
         'payroll.payment_point_reconciled',
         on_payment_point_reconciled,
         bind_type=ServiceSignalBindType.AFTER
     )
-    # @register_service_signal(
-    #     "payroll.payment_point_reconciled"
-    # )
-    # def reconcile_benefit_consumption(...)
