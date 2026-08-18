@@ -4,8 +4,6 @@ from datetime import date
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 
-from djmoney.money import Money
-
 from core.test_helpers import create_test_interactive_user
 
 from hordak.models import Transaction

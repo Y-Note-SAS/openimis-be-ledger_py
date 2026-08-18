@@ -234,6 +234,7 @@ def on_invoice_issued(
     **kwargs
 ):
     invoice = result["data"]
+
     logger.info(
         "Financial event received",
         extra={
@@ -247,12 +248,16 @@ def on_invoice_issued(
     )
 
     if amount == 0:
-        logger.info("Skipped zero for event invoice_issued")
+        logger.info(
+            "Skipped zero for event invoice_issued"
+        )
         return
+
     mapping = resolve_mapping(
         "invoice_issued",
         kwargs,
     )
+
     user = kwargs.get("user", None)
 
     if not mapping:
@@ -267,7 +272,10 @@ def on_invoice_issued(
         code=mapping["journal"]
     )
 
-    period = get_open_period(invoice["invoice_date"])
+    period = get_open_period(
+        invoice["invoice_date"]
+    )
+
     if not period:
         return raise_unmapped(
             "invoice_issued",
@@ -280,10 +288,14 @@ def on_invoice_issued(
         invoice["health_facility_id"],
         AnalyticValue.PARTY_HEALTH_FACILITY,
     )
-    tags = {
-        0: [party_tag],
-        1: [party_tag],
-    }
+
+    tags = {}
+
+    if party_tag:
+        tags = {
+            0: [party_tag],
+            1: [party_tag],
+        }
 
     result = LedgerEntryService.post(
         journal=journal,
@@ -305,7 +317,11 @@ def on_invoice_issued(
             }
         ],
     )
-    logger.info("Entry for invoice_issued posted with result %s", result)
+
+    logger.info(
+        "Entry for invoice_issued posted with result %s",
+        result
+    )
 
 
 def on_payroll_disbursed(
