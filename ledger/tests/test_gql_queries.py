@@ -749,7 +749,6 @@ class PartyLedgerBalanceQueryTest(TestCase):
             query,
             context_value=self.context
         )
-        print("result : ", result)
         self.assertEqual(
             len(
                 result.data["partyLedgerBalance"]["edges"]
