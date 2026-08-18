@@ -1,10 +1,10 @@
 from decimal import Decimal
-
+import graphene
 from django.test import TestCase
 from djmoney.money import Money
 
 from core.test_helpers import create_test_interactive_user
-
+from types import SimpleNamespace
 from hordak.models import Transaction, Leg
 
 from ledger.models import (
@@ -13,6 +13,7 @@ from ledger.models import (
     AnalyticValue,
     LegTag,
     Account,
+    PartyLedgerBalance
 )
 
 from ledger.schema import Query
@@ -681,4 +682,187 @@ class FunderActivityReportQueryTest(TestCase):
         self.assertEqual(
             result.balance_amount,
             Decimal("100"),
+        )
+
+class PartyLedgerBalanceQueryTest(TestCase):
+
+    def setUp(self):
+
+        self.user = create_test_interactive_user()
+
+        self.period = AccountingPeriod(
+            name="2026-01",
+            code="2026-01",
+        )
+        self.period.save(username=self.user.username)
+
+        self.axis = AnalyticAxis(
+            code=AnalyticAxis.PARTY,
+            name="Party",
+        )
+        self.axis.save(username=self.user.username)
+
+        self.party = AnalyticValue(
+            axis=self.axis,
+            party_type=AnalyticValue.PARTY_HEALTH_FACILITY,
+            external_reference="HF001",
+            display_name="HF 001",
+        )
+        self.party.save(username=self.user.username)
+
+        self.balance = PartyLedgerBalance(
+            accounting_period=self.period,
+            analytic_value=self.party,
+            debit_amount=Decimal("100"),
+            credit_amount=Decimal("20"),
+            balance_amount=Decimal("80"),
+        )
+        self.balance.save(username=self.user.username)
+
+        self.context = SimpleNamespace(
+            user=self.user
+        )
+
+    def test_returns_all_balances(self):
+
+        query = """
+            query {
+            partyLedgerBalance {
+                edges {
+                node {
+                    analyticValue
+                    {
+                    partyType
+                    funderCode
+                    }
+                    debitAmount
+                }
+                }
+            }
+            }
+        """
+        schema = graphene.Schema(
+            query=Query,
+        )
+
+        result = schema.execute(
+            query,
+            context_value=self.context
+        )
+        print("result : ", result)
+        self.assertEqual(
+            len(
+                result.data["partyLedgerBalance"]["edges"]
+            ),
+            1,
+        )
+
+
+class AnalyticValueQueryTest(TestCase):
+
+    def setUp(self):
+        self.user = create_test_interactive_user()
+
+        self.context = SimpleNamespace(
+            user=self.user
+        )
+
+        self.axis = AnalyticAxis(
+            code=AnalyticAxis.FUNDER,
+            name="Funder",
+        )
+        self.axis.save(username=self.user.username)
+
+        self.value = AnalyticValue(
+            axis=self.axis,
+            funder_code="FUNDER001",
+            external_reference="F001",
+            display_name="Test Funder",
+        )
+        self.value.save(username=self.user.username)
+
+    def test_queryset_contains_values(self):
+
+        query = """
+            query {
+            analyticValue {
+            totalCount
+                edges {
+                node {
+                    displayName
+                    externalReference
+                }
+                }
+            }
+            }
+        """
+        schema = graphene.Schema(
+            query=Query,
+        )
+
+        result = schema.execute(
+            query,
+            context_value=self.context
+        )
+
+
+        self.assertEqual(
+            len(
+                result.data["analyticValue"]["edges"]
+            ),
+            1,
+        )
+
+class AccountingPeriodQueryTest(TestCase):
+
+    def setUp(self):
+
+        self.user = create_test_interactive_user()
+
+        self.period = AccountingPeriod(
+            name="2026-01",
+            code="2026-01",
+            status=AccountingPeriod.STATUS_OPEN,
+        )
+        self.period.save(username=self.user.username)
+
+        self.context = SimpleNamespace(
+            user=self.user
+        )
+
+    def test_queryset_contains_period(self):
+
+        query = """
+            query {
+            accountingPeriods {
+            totalCount
+                edges {
+                node {
+                    startDate
+                    endDate
+                    name
+                    code
+                    status
+                }
+                }
+            }
+            }
+        """
+        schema = graphene.Schema(
+            query=Query,
+        )
+
+        result = schema.execute(
+            query,
+            context_value=self.context
+        )
+        self.assertEqual(
+            len(
+                result.data["accountingPeriods"]["edges"]
+            ),
+            1,
+        )
+        self.assertEqual(
+            result.data["accountingPeriods"]["edges"][0]["node"]["code"],
+            "2026-01",
         )

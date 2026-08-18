@@ -4,7 +4,8 @@ from .models import (
     LedgerEntryMeta,
     PartyLedgerBalance,
     AccountingPeriod,
-    LedgerJournal
+    LedgerJournal,
+    AnalyticValue
 )
 from core import prefix_filterset, ExtendedConnection
 
@@ -77,6 +78,21 @@ class LedgerEntryGQLType(DjangoObjectType):
         }
         connection_class = ExtendedConnection
 
+class AnalyticValueGQLType(DjangoObjectType):
+
+    client_mutation_id = graphene.String()
+
+    class Meta:
+        model = AnalyticValue
+        interfaces = (graphene.relay.Node,)
+        filter_fields = {
+            "funder_code": ["exact"],
+            "party_type": ["exact"],
+            "external_reference": ["exact"],
+            "display_name": ["exact"],
+        }
+        connection_class = ExtendedConnection
+
 
 class PartyLedgerBalanceGQLType(DjangoObjectType):
 
@@ -86,6 +102,14 @@ class PartyLedgerBalanceGQLType(DjangoObjectType):
         model = PartyLedgerBalance
         interfaces = (graphene.relay.Node,)
         filter_fields = {
+            **prefix_filterset(
+                "analytic_value__",
+                AnalyticValueGQLType._meta.filter_fields
+            ),
+            **prefix_filterset(
+                "accounting_period__",
+                AccountingPeriodGQLType._meta.filter_fields
+            ),
         }
         connection_class = ExtendedConnection
 

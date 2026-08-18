@@ -18,6 +18,7 @@ AnalyticAxis,
 AnalyticValue,
 LegTag
 )
+from policyholder.models import PolicyHolder
 from claim.test_helpers import create_test_claim
 from ledger.signals import (
 on_claim_valuated,
@@ -66,6 +67,13 @@ class PostingSignalsTest(TestCase):
         cls.user = create_test_interactive_user()
 
         create_accounting_periods(cls.user)
+
+        policy_holder = PolicyHolder(
+            is_deleted=False,
+            trade_name="OMS",
+            code="OMS"
+        )
+        policy_holder.save(username=cls.user.username)
 
         custom_props = {
             "date_claimed": "2021-02-01",
@@ -715,3 +723,227 @@ class PostingSignalsTest(TestCase):
 
         self.assertIn(party_value, tags[0])
         self.assertIn(party_value, tags[1])
+
+
+    @patch("ledger.signals.resolve_funder_tag")
+    @patch("ledger.signals.resolve_party_tag")
+    def test_claim_valuated_tags_party_and_funder_on_same_legs(
+        self,
+        mock_resolve_party_tag,
+        mock_resolve_funder_tag,
+    ):
+        """
+        T036:
+        Une écriture claim_valuated doit pouvoir porter simultanément
+        un tag PARTY et un tag FUNDER sur chacun de ses legs.
+
+        Les deux axes doivent rester indépendamment interrogeables.
+        """
+
+        party = AnalyticAxis(
+            code=AnalyticAxis.PARTY,
+            name="Party",
+        )
+        party.save(username=self.user.username)
+        party_value = AnalyticValue(
+            axis=party,
+            party_type=AnalyticValue.PARTY_HEALTH_FACILITY,
+            external_reference="HF001",
+            display_name="HF 001",
+        )
+        party_value.save(username=self.user.username)
+
+        funder = AnalyticAxis(
+            code=AnalyticAxis.FUNDER,
+            name="Funder",
+        )
+        funder.save(username=self.user.username)
+        funder_value = AnalyticValue(
+            axis=funder,
+            party_type=AnalyticValue.PARTY_PAYMENT_POINT_MANAGER,
+            external_reference="HF002",
+            display_name="HF 002",
+            funder_code="OMS"
+        )
+        funder_value.save(username=self.user.username)
+
+        mock_resolve_party_tag.return_value = party_value
+        mock_resolve_funder_tag.return_value = funder_value
+
+        on_claim_valuated(
+            sender=None,
+            claim=self.claim,
+            user=self.user,
+        )
+
+        meta = LedgerEntryMeta.objects.get()
+
+        legs = list(
+            meta.transaction.legs.all()
+        )
+
+        self.assertEqual(
+            len(legs),
+            2,
+        )
+
+        for leg in legs:
+
+            tags = list(
+                LegTag.objects
+                .filter(leg=leg)
+                .select_related(
+                    "analytic_value",
+                    "axis",
+                )
+            )
+
+            self.assertEqual(
+                len(tags),
+                2,
+            )
+
+            # --------------------------------------------------------
+            # PARTY
+            # --------------------------------------------------------
+
+            party_tags = [
+                tag
+                for tag in tags
+                if tag.axis.code == AnalyticAxis.PARTY
+            ]
+
+            self.assertEqual(
+                len(party_tags),
+                1,
+            )
+
+            self.assertEqual(
+                party_tags[0].analytic_value,
+                party_value,
+            )
+
+            # --------------------------------------------------------
+            # FUNDER
+            # --------------------------------------------------------
+
+            funder_tags = [
+                tag
+                for tag in tags
+                if tag.axis.code == AnalyticAxis.FUNDER
+            ]
+
+            self.assertEqual(
+                len(funder_tags),
+                1,
+            )
+
+            self.assertEqual(
+                funder_tags[0].analytic_value,
+                funder_value,
+            )
+
+
+    @patch("ledger.signals.resolve_funder_tag")
+    @patch("ledger.signals.resolve_party_tag")
+    def test_claim_valuated_party_and_funder_are_independently_queryable(
+        self,
+        mock_resolve_party_tag,
+        mock_resolve_funder_tag,
+    ):
+        """
+        T036:
+        PARTY et FUNDER sont attachés aux mêmes legs mais peuvent
+        être interrogés indépendamment via leur axe.
+        """
+
+        party = AnalyticAxis(
+            code=AnalyticAxis.PARTY,
+            name="Party",
+        )
+        party.save(username=self.user.username)
+        party_value = AnalyticValue(
+            axis=party,
+            party_type=AnalyticValue.PARTY_HEALTH_FACILITY,
+            external_reference="HF001",
+            display_name="HF 001",
+        )
+        party_value.save(username=self.user.username)
+
+        funder = AnalyticAxis(
+            code=AnalyticAxis.FUNDER,
+            name="Funder",
+        )
+        funder.save(username=self.user.username)
+        funder_value = AnalyticValue(
+            axis=funder,
+            party_type=AnalyticValue.PARTY_PAYMENT_POINT_MANAGER,
+            external_reference="HF002",
+            display_name="HF 002",
+            funder_code="OMS"
+        )
+        funder_value.save(username=self.user.username)
+
+        mock_resolve_party_tag.return_value = party_value
+        mock_resolve_funder_tag.return_value = funder_value
+
+        on_claim_valuated(
+            sender=None,
+            claim=self.claim,
+            user=self.user,
+        )
+
+        meta = LedgerEntryMeta.objects.get()
+
+        # ------------------------------------------------------------
+        # Recherche par PARTY
+        # ------------------------------------------------------------
+
+        party_tags = LegTag.objects.filter(
+            leg__transaction=meta.transaction,
+            axis__code=AnalyticAxis.PARTY,
+            analytic_value=party_value,
+        )
+
+        self.assertEqual(
+            party_tags.count(),
+            2,
+        )
+
+        # ------------------------------------------------------------
+        # Recherche par FUNDER
+        # ------------------------------------------------------------
+
+        funder_tags = LegTag.objects.filter(
+            leg__transaction=meta.transaction,
+            axis__code=AnalyticAxis.FUNDER,
+            analytic_value=funder_value,
+        )
+
+        self.assertEqual(
+            funder_tags.count(),
+            2,
+        )
+
+        # ------------------------------------------------------------
+        # Les deux axes concernent les mêmes legs
+        # ------------------------------------------------------------
+
+        party_leg_ids = set(
+            party_tags.values_list(
+                "leg_id",
+                flat=True,
+            )
+        )
+
+        funder_leg_ids = set(
+            funder_tags.values_list(
+                "leg_id",
+                flat=True,
+            )
+        )
+
+        self.assertEqual(
+            party_leg_ids,
+            funder_leg_ids,
+        )
