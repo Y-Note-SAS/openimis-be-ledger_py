@@ -15,6 +15,7 @@ from .models import (
 from decimal import Decimal
 from django.db.models import Sum
 
+
 class Query(graphene.ObjectType):
 
     party_ledger_balance = OrderedDjangoFilterConnectionField(
@@ -38,7 +39,6 @@ class Query(graphene.ObjectType):
         analytic_value_id=graphene.UUID(required=True),
         accounting_period_id=graphene.UUID(required=True),
     )
-
 
     def resolve_funder_activity_report(
         self,

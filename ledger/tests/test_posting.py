@@ -7,29 +7,30 @@ from unittest.mock import patch
 from django.test import TestCase
 
 from ledger.models import (
-AccountingPeriod,
-Account,
-LedgerEntryMeta,
-LedgerJournal,
-Sequence,
-DeploymentConfiguration,
-UnmappedFinancialEvent,
-AnalyticAxis,
-AnalyticValue,
-LegTag
+    AccountingPeriod,
+    Account,
+    LedgerEntryMeta,
+    LedgerJournal,
+    Sequence,
+    DeploymentConfiguration,
+    UnmappedFinancialEvent,
+    AnalyticAxis,
+    AnalyticValue,
+    LegTag
 )
 from policyholder.models import PolicyHolder
 from claim.test_helpers import create_test_claim
 from ledger.signals import (
-on_claim_valuated,
-on_invoice_issued,
-on_payroll_disbursed,
-on_payment_point_reconciled,
+    on_claim_valuated,
+    on_invoice_issued,
+    on_payroll_disbursed,
+    on_payment_point_reconciled,
 )
 from core.test_helpers import create_test_interactive_user
 from claim.models import Claim
 from datetime import date, timedelta
 from calendar import monthrange
+
 
 def create_accounting_periods(user):
     """Crée 50 périodes comptables de janvier 2020 à février 2024."""
@@ -348,7 +349,7 @@ class PostingSignalsTest(TestCase):
             benefits=benefits,
             user=self.user,
             payroll_id="PAY001",
-            payroll_date= "2021-02-01",
+            payroll_date="2021-02-01",
             payment_point_manager_id=1
         )
 
@@ -469,7 +470,6 @@ class PostingSignalsTest(TestCase):
             "invoice_issued",
         )
 
-
     @patch(
         "ledger.signals.resolve_mapping",
         return_value=None,
@@ -485,7 +485,7 @@ class PostingSignalsTest(TestCase):
             benefits=benefits,
             payroll_id="PAY001",
             user=self.user,
-            payroll_date= "2021-02-01"
+            payroll_date="2021-02-01"
         )
 
         self.assertEqual(
@@ -504,7 +504,6 @@ class PostingSignalsTest(TestCase):
             event.event_type,
             "payroll_disbursement",
         )
-
 
     @patch(
         "ledger.signals.resolve_mapping",
@@ -541,7 +540,6 @@ class PostingSignalsTest(TestCase):
             event.event_type,
             "payment_point_reconciliation",
         )
-
 
     @patch("ledger.signals.LedgerEntryService.post")
     @patch("ledger.signals.resolve_party_tag")
@@ -591,7 +589,6 @@ class PostingSignalsTest(TestCase):
             },
         )
 
-
     @patch(
         "ledger.signals.resolve_party_tag",
         return_value=None,
@@ -633,7 +630,6 @@ class PostingSignalsTest(TestCase):
             AnalyticValue.PARTY_HEALTH_FACILITY,
         )
 
-
     @patch("ledger.signals.LedgerEntryService.post")
     @patch("ledger.signals.resolve_party_tag")
     def test_payroll_posts_payment_point_manager_tag(
@@ -668,7 +664,7 @@ class PostingSignalsTest(TestCase):
             user=self.user,
             payroll_id="PAY001",
             payment_point_manager_id="PPM001",
-            payroll_date= "2021-02-01"
+            payroll_date="2021-02-01"
         )
 
         mock_post.assert_called_once()
@@ -677,7 +673,6 @@ class PostingSignalsTest(TestCase):
 
         self.assertIn(party_value, tags[0])
         self.assertIn(party_value, tags[1])
-
 
     @patch("ledger.signals.LedgerEntryService.post")
     @patch("ledger.signals.resolve_party_tag")
@@ -723,7 +718,6 @@ class PostingSignalsTest(TestCase):
 
         self.assertIn(party_value, tags[0])
         self.assertIn(party_value, tags[1])
-
 
     @patch("ledger.signals.resolve_funder_tag")
     @patch("ledger.signals.resolve_party_tag")
@@ -842,7 +836,6 @@ class PostingSignalsTest(TestCase):
                 funder_tags[0].analytic_value,
                 funder_value,
             )
-
 
     @patch("ledger.signals.resolve_funder_tag")
     @patch("ledger.signals.resolve_party_tag")

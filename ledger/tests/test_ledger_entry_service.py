@@ -24,6 +24,7 @@ from django.core.exceptions import ValidationError
 from hordak.models import Leg
 from decimal import Decimal
 
+
 class LedgerEntryServiceTests(TestCase):
 
     def setUp(self):
@@ -92,14 +93,12 @@ class LedgerEntryServiceTests(TestCase):
         )
         self.journal.save(username=self.test_user.username)
 
-
         # Période ouverte
         self.open_period = AccountingPeriod(
             name="2026-01",
             status=AccountingPeriod.STATUS_OPEN,
         )
         self.open_period.save(username=self.test_user.username)
-
 
         # Période verrouillée
         self.locked_period = AccountingPeriod(
@@ -108,14 +107,12 @@ class LedgerEntryServiceTests(TestCase):
         )
         self.locked_period.save(username=self.test_user.username)
 
-
         # Période fermée
         self.closed_period = AccountingPeriod(
             name="2026-03",
             status=AccountingPeriod.STATUS_OPEN,
         )
         self.closed_period.save(username=self.test_user.username)
-
 
         # Legs équilibrés réutilisables
         self.valid_legs = [
@@ -148,8 +145,6 @@ class LedgerEntryServiceTests(TestCase):
 
         self.assertIsNotNone(result.pk)
 
-
-
     def test_locked_period_rejected(self):
 
         self.locked_period.status = (
@@ -157,7 +152,6 @@ class LedgerEntryServiceTests(TestCase):
         )
 
         self.locked_period.save(username=self.test_user.username)
-
 
         with self.assertRaises(
             ClosedPeriodException
@@ -172,8 +166,6 @@ class LedgerEntryServiceTests(TestCase):
                 user=self.test_user
             )
 
-
-
     def test_closed_period_rejected(self):
 
         self.closed_period.status = (
@@ -181,7 +173,6 @@ class LedgerEntryServiceTests(TestCase):
         )
 
         self.closed_period.save(username=self.test_user.username)
-
 
         with self.assertRaises(
             ClosedPeriodException
@@ -195,7 +186,6 @@ class LedgerEntryServiceTests(TestCase):
                 legs=self.valid_legs,
                 user=self.test_user
             )
-
 
     def test_missing_account_mapping(self):
 
@@ -247,7 +237,6 @@ class LedgerEntryServiceTests(TestCase):
             str(ctx.exception).lower(),
         )
 
-
     def test_tags_are_attached_to_legs(self):
         result = LedgerEntryService.post(
             journal=self.journal,
@@ -286,6 +275,7 @@ class LedgerEntryServiceTests(TestCase):
             ).count(),
             1,
         )
+
 
 class LedgerEntryServiceTest(TestCase):
 
@@ -350,6 +340,7 @@ class LedgerEntryServiceTest(TestCase):
                 ],
                 user=self.test_user,
             )
+
 
 class LedgerEntryServiceAdditionalTests(TestCase):
 
@@ -418,7 +409,7 @@ class LedgerEntryServiceAdditionalTests(TestCase):
         )
         self.funder_value.save(username=self.user.username)
 
-        cnfg =DeploymentConfiguration(
+        cnfg = DeploymentConfiguration(
             currency_code="EUR",
             retained_earnings_account=self.cash_account,
         )
@@ -519,7 +510,9 @@ class LedgerEntryServiceAdditionalTests(TestCase):
 
         self.assertEqual(
             expense_snapshot.balance_amount,
-            Decimal("100"), #normalement -100 mais les valeurs sont passé par hordak en valeur absolu
+            Decimal("100"),
+            # normalement -100 mais les valeurs sont
+            # passé par hordak en valeur absolu
         )
 
     def test_post_updates_party_balance(self):

@@ -212,7 +212,7 @@ class PeriodServiceTest(TestCase):
                 user=self.user,
             )
 
-        p = PeriodService.lock(
+        PeriodService.lock(
             first,
             user=self.user,
         )
@@ -376,7 +376,8 @@ class PeriodServiceTest(TestCase):
 
         self.assertEqual(
             retained_earnings_leg.amount.amount,
-            Decimal("1000"), #Normalement -100 mais hordak gere tout en positif
+            Decimal("1000"),
+            # Normalement -100 mais hordak gere tout en positif
         )
 
     def test_close_reverses_multiple_income_expense_balances(self):

@@ -312,7 +312,7 @@ class FunderActivityReportQueryTest(TestCase):
             ),
         )
 
-        credit_leg = Leg.objects.create(
+        Leg.objects.create(
             transaction=transaction,
             account=self.account_2,
             credit=Money(
@@ -684,6 +684,7 @@ class FunderActivityReportQueryTest(TestCase):
             Decimal("100"),
         )
 
+
 class PartyLedgerBalanceQueryTest(TestCase):
 
     def setUp(self):
@@ -804,13 +805,13 @@ class AnalyticValueQueryTest(TestCase):
             context_value=self.context
         )
 
-
         self.assertEqual(
             len(
                 result.data["analyticValue"]["edges"]
             ),
             1,
         )
+
 
 class AccountingPeriodQueryTest(TestCase):
 

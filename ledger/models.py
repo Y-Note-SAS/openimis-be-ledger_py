@@ -2,7 +2,6 @@ from core import fields
 from core import models as core_models
 from django.db import models
 import logging
-from django.db import connection
 from hordak.models import Account, Leg, Transaction
 from hordak.defaults import (
     DECIMAL_PLACES,
@@ -10,6 +9,7 @@ from hordak.defaults import (
 )
 from django.core.exceptions import ValidationError
 logger = logging.getLogger(__name__)
+
 
 class Sequence(core_models.HistoryModel):
     """
@@ -24,6 +24,7 @@ class Sequence(core_models.HistoryModel):
     class Meta:
         managed = True
         db_table = 'tblSequence'
+
 
 class AccountingPeriod(core_models.HistoryModel):
     """
@@ -129,6 +130,7 @@ class AccountingPeriod(core_models.HistoryModel):
         managed = True
         db_table = 'tblAccountingPeriod'
 
+
 class LedgerJournal(core_models.HistoryModel):
     """
     This is Journal class it all the fields needed
@@ -148,6 +150,7 @@ class LedgerJournal(core_models.HistoryModel):
 
     def __str__(self):
         return self.code or self.name or str(self.id)
+
 
 class AnalyticAxis(core_models.HistoryModel):
     PARTY = "party"
@@ -397,6 +400,7 @@ class DeploymentConfiguration(core_models.HistoryModel):
 
     class Meta:
         db_table = 'tblDeploymentConfiguration'
+
 
 class UnmappedFinancialEvent(core_models.HistoryModel):
 

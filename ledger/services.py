@@ -2,7 +2,6 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 
 from core.signals import register_service_signal
-from django.db.models import F
 from hordak.models import Transaction, Leg
 from datetime import datetime as py_datetime
 from ledger.models import (
@@ -17,11 +16,14 @@ from ledger.models import (
 from decimal import Decimal
 from djmoney.money import Money
 
+
 class MissingAccountMappingException(Exception):
     pass
 
+
 class MissingDeploymentConfigurationException(Exception):
     pass
+
 
 class ClosedPeriodException(Exception):
     pass
@@ -68,7 +70,6 @@ class LedgerEntryService:
         snapshot.balance_amount += amount
 
         snapshot.save(username=username)
-
 
     @classmethod
     def _update_party_balance(
@@ -240,7 +241,6 @@ class LedgerEntryService:
 
                     legtag.save(username=username)
 
-
             for leg in created_legs:
 
                 cls._update_account_snapshot(
@@ -257,12 +257,14 @@ class LedgerEntryService:
 
             return meta
 
+
 def ensure_period_not_closed(period):
     if period.status == AccountingPeriod.STATUS_CLOSED:
         raise ClosedPeriodException(
             "Entries belonging to a closed accounting period "
             "cannot be modified"
         )
+
 
 class PeriodService:
 

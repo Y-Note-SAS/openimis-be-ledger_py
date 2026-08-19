@@ -11,6 +11,7 @@ from ledger.models import (
 )
 from core.test_helpers import create_test_interactive_user
 
+
 class ClosedPeriodLegDBTriggerTest(TestCase):
 
     def setUp(self):
