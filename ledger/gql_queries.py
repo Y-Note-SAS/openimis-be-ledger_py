@@ -9,6 +9,7 @@ from .models import (
 )
 from core import prefix_filterset, ExtendedConnection
 
+
 class AccountingPeriodGQLType(DjangoObjectType):
 
     client_mutation_id = graphene.String()
@@ -39,6 +40,7 @@ class LedgerJournalGQLType(DjangoObjectType):
             "type": ["exact"]
         }
         connection_class = ExtendedConnection
+
 
 class LedgerEntryGQLType(DjangoObjectType):
 
@@ -78,6 +80,7 @@ class LedgerEntryGQLType(DjangoObjectType):
         }
         connection_class = ExtendedConnection
 
+
 class AnalyticValueGQLType(DjangoObjectType):
 
     client_mutation_id = graphene.String()
@@ -112,6 +115,7 @@ class PartyLedgerBalanceGQLType(DjangoObjectType):
             ),
         }
         connection_class = ExtendedConnection
+
 
 class FunderActivityReportGQLType(graphene.ObjectType):
     debit_amount = graphene.Decimal()

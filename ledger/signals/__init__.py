@@ -1,8 +1,6 @@
 import logging
 from decimal import Decimal
 
-from django.dispatch import receiver
-
 from ledger.models import (
     AccountingPeriod,
     LedgerJournal,
@@ -18,12 +16,15 @@ from claim.models import Claim
 from policyholder.models import PolicyHolder
 from django.db.models import Q
 from datetime import datetime as py_datetime
+logger = logging.getLogger(__name__)
+
 
 def resolve_accounts(journal):
     return {
         "debit": journal.default_debit_account_id,
         "credit": journal.default_credit_account_id,
     }
+
 
 def resolve_party_tag(external_reference, party_type):
     return (
@@ -47,13 +48,13 @@ def resolve_funder_tag(funder_code):
         .first()
     )
 
-def raise_unmapped(
-        event_type,
-        source_reference,
-        payload,
-        user
-    ):
 
+def raise_unmapped(
+    event_type,
+    source_reference,
+    payload,
+    user
+):
     payload.pop("user", None)
     unmaped = UnmappedFinancialEvent(
         event_type=event_type,
@@ -70,7 +71,6 @@ def raise_unmapped(
         },
     )
 
-logger = logging.getLogger(__name__)
 
 def get_open_period(transaction_date):
 
@@ -83,6 +83,7 @@ def get_open_period(transaction_date):
         )
         .first()
     )
+
 
 def resolve_mapping(event_type, payload):
     """
@@ -186,8 +187,7 @@ def on_claim_valuated(
     policy_holder = PolicyHolder.objects.filter(
         is_deleted=False
     ).filter(
-        Q(date_valid_to__isnull=True) |
-        Q(date_valid_to__date__gte=today.date())
+        Q(date_valid_to__isnull=True) | Q(date_valid_to__date__gte=today.date())
     ).first()
 
     if policy_holder:
@@ -407,6 +407,7 @@ def on_payroll_disbursed(
     )
     logger.info("Entry for payroll_disbursed posted with result %s", result)
 
+
 def on_payment_point_reconciled(
     sender,
     benefits,
@@ -510,6 +511,7 @@ def on_payment_point_reconciled(
         tags=tags
     )
     logger.info("Entry for payment_point_reconciliation posted with result %s", result)
+
 
 def bind_service_signals():
 
