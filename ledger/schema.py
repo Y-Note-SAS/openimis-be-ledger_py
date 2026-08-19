@@ -1,6 +1,12 @@
 import graphene
 from core.schema import OrderedDjangoFilterConnectionField
-from .gql_queries import PartyLedgerBalanceGQLType, FunderActivityReportGQLType, LedgerEntryGQLType
+from .gql_queries import (
+    PartyLedgerBalanceGQLType,
+    FunderActivityReportGQLType,
+    LedgerEntryGQLType,
+    AnalyticValueGQLType,
+    AccountingPeriodGQLType
+)
 from .models import (
     LegTag,
     Leg,
@@ -13,6 +19,14 @@ class Query(graphene.ObjectType):
 
     party_ledger_balance = OrderedDjangoFilterConnectionField(
         PartyLedgerBalanceGQLType
+    )
+
+    analytic_value = OrderedDjangoFilterConnectionField(
+        AnalyticValueGQLType
+    )
+
+    accounting_periods = OrderedDjangoFilterConnectionField(
+        AccountingPeriodGQLType
     )
 
     ledger_entries = OrderedDjangoFilterConnectionField(

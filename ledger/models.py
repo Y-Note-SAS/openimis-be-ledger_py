@@ -272,21 +272,6 @@ class LegTag(core_models.HistoryModel):
         self.axis = self.analytic_value.axis
         self.clean()
 
-        # Resynchroniser accounting_period_id depuis le Leg associé.
-        # Une fois fixé, on ne le réécrit pas à chaque save (évite un
-        # aller-retour SQL inutile) ; la valeur ne change pas dans le
-        # temps pour un Leg donné (une période comptable close ne bouge
-        # plus).
-        # if self.leg_id and self.accounting_period_id is None:
-        #     with connection.cursor() as cursor:
-        #         cursor.execute(
-        #             'SELECT accounting_period_id FROM hordak_leg WHERE id = %s',
-        #             [self.leg_id],
-        #         )
-        #         row = cursor.fetchone()
-        #         if row and row[0]:
-        #             self.accounting_period_id = row[0]
-
         super().save(*args, **kwargs)
 
     def clean(self):
