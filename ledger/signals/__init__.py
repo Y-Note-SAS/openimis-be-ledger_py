@@ -204,7 +204,7 @@ def on_claim_valuated(
     result = LedgerEntryService.post(
         journal=journal,
         accounting_period=period,
-        source_event_type="claim_valuated",
+        source_event_type="claim_payment",
         source_event_reference=str(claim.uuid),
         user=user,
         tags=tags,

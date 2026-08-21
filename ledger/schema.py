@@ -10,7 +10,8 @@ from .gql_queries import (
 from .models import (
     LegTag,
     Leg,
-    AnalyticAxis
+    AnalyticAxis,
+    LedgerEntryMeta
 )
 from decimal import Decimal
 from django.db.models import Sum
@@ -31,7 +32,9 @@ class Query(graphene.ObjectType):
     )
 
     ledger_entries = OrderedDjangoFilterConnectionField(
-        LedgerEntryGQLType
+        LedgerEntryGQLType,
+        party=graphene.UUID(),
+        funder=graphene.UUID(),
     )
 
     funder_activity_report = graphene.Field(
@@ -39,6 +42,30 @@ class Query(graphene.ObjectType):
         analytic_value_id=graphene.UUID(required=True),
         accounting_period_id=graphene.UUID(required=True),
     )
+
+    def resolve_ledger_entries(
+        self,
+        info,
+        party=None,
+        funder=None,
+        **kwargs,
+    ):
+
+        queryset = LedgerEntryMeta.objects.all()
+
+        if party:
+            queryset = queryset.filter(
+                transaction__legs__analytic_tags__analytic_value_id=party,
+                transaction__legs__analytic_tags__axis__code=AnalyticAxis.PARTY,
+            )
+
+        if funder:
+            queryset = queryset.filter(
+                transaction__legs__analytic_tags__analytic_value_id=funder,
+                transaction__legs__analytic_tags__axis__code=AnalyticAxis.FUNDER,
+            )
+
+        return queryset.distinct()
 
     def resolve_funder_activity_report(
         self,
