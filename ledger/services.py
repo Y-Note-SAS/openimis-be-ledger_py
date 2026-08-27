@@ -1,6 +1,6 @@
 from django.core.exceptions import ValidationError
 from django.db import transaction
-
+from django.utils import timezone
 from core.signals import register_service_signal
 from hordak.models import Transaction, Leg
 from datetime import datetime as py_datetime
@@ -15,6 +15,9 @@ from ledger.models import (
 )
 from decimal import Decimal
 from djmoney.money import Money
+from ledger.replication.tasks import (
+    replicate_entry
+)
 
 
 class MissingAccountMappingException(Exception):
@@ -27,6 +30,32 @@ class MissingDeploymentConfigurationException(Exception):
 
 class ClosedPeriodException(Exception):
     pass
+
+
+class ManualReviewService:
+    @classmethod
+    def resolve(
+        cls,
+        review_item,
+        correcting_entry,
+        note,
+        user,
+    ):
+        if review_item.resolved_at:
+            raise ValidationError(
+                "Already resolved"
+            )
+        review_item.resolved_at = timezone.now()
+
+        review_item.resolved_by_transaction = (
+            correcting_entry.transaction
+        )
+
+        review_item.resolution_note = note
+
+        review_item.save(
+            username=user.username
+        )
 
 
 class LedgerEntryService:
@@ -255,6 +284,20 @@ class LedgerEntryService:
                     username=username
                 )
 
+            deployment_config = (
+                DeploymentConfiguration.objects.first()
+            )
+
+            if (
+                deployment_config.operating_mode ==
+                DeploymentConfiguration.OPERATING_MODE_REPLICATED):
+                transaction.on_commit(
+                    lambda: replicate_entry.delay(
+                        meta.id,
+                        deployment_config.external_system,
+                        user
+                    )
+                )
             return meta
 
 
@@ -391,18 +434,19 @@ class PeriodService:
 
         with transaction.atomic():
 
+            if not user:
+                raise ValidationError(
+                    "Cannot perfom this action without user specified"
+                )
             period = AccountingPeriod(
                 start_date=start_date,
                 end_date=end_date,
                 name=name,
                 code=code,
+                audit_user_id=user._u.id,
                 status=AccountingPeriod.STATUS_OPEN,
             )
 
-            if not user:
-                raise ValidationError(
-                    "Cannot perfom this action without user specified"
-                )
             period.save(username=user.username)
 
             return period

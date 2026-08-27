@@ -2,6 +2,7 @@ from core import fields
 from core import models as core_models
 from django.db import models
 import logging
+from django.utils import timezone as django_tz
 from hordak.models import Account, Leg, Transaction
 from hordak.defaults import (
     DECIMAL_PLACES,
@@ -519,3 +520,102 @@ class AccountBalanceSnapshot(core_models.HistoryModel):
                 name="uniq_account_snapshot"
             )
         ]
+
+
+class ExternalReplicationRecord(core_models.HistoryModel):
+
+    STATUS_PENDING = "pending"
+    STATUS_SUCCEEDED = "succeeded"
+    STATUS_REJECTED = "rejected"
+    STATUS_UNCONFIRMED = "unconfirmed"
+
+    STATUS_CHOICES = [
+        (STATUS_PENDING, STATUS_PENDING),
+        (STATUS_SUCCEEDED, STATUS_SUCCEEDED),
+        (STATUS_REJECTED, STATUS_REJECTED),
+        (STATUS_UNCONFIRMED, STATUS_UNCONFIRMED),
+    ]
+
+    TARGET_ODOO = "odoo"
+    TARGET_SAGE = "sage"
+
+    TARGET_CHOICES = [
+        (TARGET_ODOO, TARGET_ODOO),
+        (TARGET_SAGE, TARGET_SAGE),
+    ]
+
+    ledger_entry = models.ForeignKey(
+        LedgerEntryMeta,
+        on_delete=models.DO_NOTHING,
+        related_name="replication_records",
+    )
+
+    target_system = models.CharField(
+        max_length=20,
+        choices=TARGET_CHOICES,
+    )
+
+    idempotency_key = models.CharField(
+        max_length=255,
+        unique=True,
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING,
+    )
+
+    external_reference = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+    )
+
+    rejection_reason = models.TextField(
+        null=True,
+        blank=True,
+    )
+
+    attempt_count = models.IntegerField(default=0)
+
+    last_attempted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    class Meta:
+        db_table = "tblExternalReplicationRecord"
+
+
+class ManualReviewQueueItem(core_models.HistoryModel):
+
+    replication_record = models.OneToOneField(
+        ExternalReplicationRecord,
+        on_delete=models.DO_NOTHING,
+        related_name="review_item",
+    )
+
+    created_at = models.DateTimeField(
+        default=django_tz.now
+    )
+
+    resolved_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    resolved_by_transaction = models.ForeignKey(
+        Transaction,
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+    )
+
+    resolution_note = models.TextField(
+        null=True,
+        blank=True,
+    )
+
+    class Meta:
+        db_table = "tblManualReviewQueueItem"
