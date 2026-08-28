@@ -22,7 +22,8 @@ from .gql_mutations import (
     LockAccountingPeriodMutation,
     CloseAccountingPeriodMutation,
     ReopenAccountingPeriodMutation,
-    CreateAccountMutation
+    CreateAccountMutation,
+    ManualReviewItemMutation
 )
 from .models import (
     LegTag,
@@ -113,7 +114,6 @@ class Query(graphene.ObjectType):
 
         return queryset.distinct()
 
-
     def resolve_manual_review_queue(
         self,
         info,
@@ -128,7 +128,6 @@ class Query(graphene.ObjectType):
         queryset = ManualReviewQueueItem.objects.filter(is_deleted=False).all()
 
         return queryset.distinct()
-
 
     def resolve_funder_activity_report(
         self,
@@ -178,3 +177,4 @@ class Mutation(graphene.ObjectType):
     close_accounting_period = CloseAccountingPeriodMutation.Field()
     reopen_accounting_period = ReopenAccountingPeriodMutation.Field()
     create_account = CreateAccountMutation.Field()
+    resolve_manual_review = ManualReviewItemMutation.Field()

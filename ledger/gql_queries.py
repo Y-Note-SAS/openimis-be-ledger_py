@@ -100,6 +100,7 @@ class AnalyticValueGQLType(DjangoObjectType):
         }
         connection_class = ExtendedConnection
 
+
 class DeploymentConfigurationGQLType(DjangoObjectType):
 
     client_mutation_id = graphene.String()

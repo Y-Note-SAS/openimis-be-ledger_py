@@ -4,7 +4,7 @@ from core.schema import OpenIMISMutation
 from django.contrib.auth.models import AnonymousUser
 from django.utils.translation import gettext as _
 from django.core.exceptions import ValidationError
-from .models import(
+from .models import (
     DeploymentConfiguration,
     AccountingPeriod,
     ManualReviewQueueItem,

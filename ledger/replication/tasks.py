@@ -5,6 +5,7 @@ from ledger.replication.factory import get_adapter
 
 MAX_ATTEMPTS = 3
 
+
 @shared_task(
     bind=True,
     queue="ledger.sync.external",
@@ -18,7 +19,7 @@ def replicate_entry(
 ):
     # Chargement
     entry = LedgerEntryMeta.objects.select_related(
-    "transaction"
+        "transaction"
     ).get(
         pk=ledger_entry_id
     )
@@ -28,7 +29,7 @@ def replicate_entry(
     record = ExternalReplicationRecord(
         ledger_entry=entry,
         target_system=target_system,
-        idempotency_key=f"{target_system}:{entry.id}"
+        idempotency_key=f"{target_system}:{entry.transaction.uuid}"
     )
     record.save(username=user.username)
 
@@ -67,11 +68,12 @@ def replicate_entry(
             ExternalReplicationRecord.STATUS_UNCONFIRMED
         )
 
-        record.save()
+        record.save(username=user.username)
 
-        ManualReviewQueueItem.objects.create(
+        manual_revue = ManualReviewQueueItem(
             replication_record=record
         )
+        manual_revue.save(username=user.username)
 
         return
     # Rejet
@@ -85,11 +87,12 @@ def replicate_entry(
             result.rejection_reason
         )
 
-        record.save()
+        record.save(username=user.username)
 
-        ManualReviewQueueItem.objects.create(
+        manual_revue = ManualReviewQueueItem(
             replication_record=record
         )
+        manual_revue.save(username=user.username)
 
         return
 

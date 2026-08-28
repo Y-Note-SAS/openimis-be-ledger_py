@@ -288,9 +288,8 @@ class LedgerEntryService:
                 DeploymentConfiguration.objects.first()
             )
 
-            if (
-                deployment_config.operating_mode ==
-                DeploymentConfiguration.OPERATING_MODE_REPLICATED):
+            mode_replicated = DeploymentConfiguration.OPERATING_MODE_REPLICATED
+            if deployment_config.operating_mode == mode_replicated:
                 transaction.on_commit(
                     lambda: replicate_entry.delay(
                         meta.id,
