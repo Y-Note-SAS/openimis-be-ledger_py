@@ -278,14 +278,14 @@ class LockAccountingPeriodMutation(OpenIMISMutation):
             raise PermissionDenied(_("unauthorized"))
 
         try:
-            preriod = AccountingPeriod.objects.get(id=data["id"])
+            period = AccountingPeriod.objects.get(id=data["id"])
         except AccountingPeriod.DoesNotExist:
             raise ValidationError(
                 _("The specified accounting period was not found")
             )
 
         PeriodService.lock(
-            period=preriod,
+            period=period,
             user=user
         )
 
@@ -313,14 +313,14 @@ class CloseAccountingPeriodMutation(OpenIMISMutation):
             raise PermissionDenied(_("unauthorized"))
 
         try:
-            preriod = AccountingPeriod.objects.get(id=data["id"])
+            period = AccountingPeriod.objects.get(id=data["id"])
         except AccountingPeriod.DoesNotExist:
             raise ValidationError(
                 _("The specified accounting period was not found")
             )
 
         PeriodService.close(
-            period=preriod,
+            period=period,
             user=user
         )
 
@@ -348,14 +348,14 @@ class ReopenAccountingPeriodMutation(OpenIMISMutation):
             raise PermissionDenied(_("unauthorized"))
 
         try:
-            preriod = AccountingPeriod.objects.get(id=data["id"])
+            period = AccountingPeriod.objects.get(id=data["id"])
         except AccountingPeriod.DoesNotExist:
             raise ValidationError(
                 _("The specified accounting period was not found")
             )
 
         PeriodService.reopen(
-            period=preriod,
+            period=period,
             user=user
         )
 
@@ -383,6 +383,8 @@ class ManualReviewItemMutation(OpenIMISMutation):
 
         replication_record_id = data.get("replication_record_id", None)
         resolved_at = data.get("resolved_at", None)
+        if not resolved_at:
+            resolved_at = datetime.now().date()
 
         resolved_at = f"{resolved_at}T{datetime.now().strftime('%H:%M:%S+00:00')}"
         logger.debug("resolved_at %s", resolved_at)
@@ -406,7 +408,7 @@ class ManualReviewItemMutation(OpenIMISMutation):
         if resolved_by_transaction_id:
             try:
                 resolved_by_transaction_id =\
-                    Transaction.objects.get(id=data["resolved_by_transaction_id"])
+                    Transaction.objects.get(id=resolved_by_transaction_id)
             except Transaction.DoesNotExist:
                 raise ValidationError(
                     _("The specified transaction resolved by was not found")

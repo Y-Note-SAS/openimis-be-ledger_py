@@ -403,7 +403,7 @@ class PeriodService:
         if not latest_period:
             return
 
-        if start_date <= latest_period.end_date:
+        if latest_period.end_date and start_date <= latest_period.end_date:
             raise ValidationError(
                 "New accounting period must start after the latest "
                 "existing accounting period"
@@ -433,12 +433,12 @@ class PeriodService:
         cls._validate_chronological_order(start_date)
 
         with transaction.atomic():
-            core_user = User.objects.filter(id=user.id).first()
 
             if not user:
                 raise ValidationError(
                     "Cannot perfom this action without user specified"
                 )
+            core_user = User.objects.filter(id=user.id).first()
             period = AccountingPeriod(
                 start_date=start_date,
                 end_date=end_date,

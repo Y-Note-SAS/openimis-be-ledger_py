@@ -18,9 +18,7 @@ def replicate_entry(
     user
 ):
     # Chargement
-    entry = LedgerEntryMeta.objects.select_related(
-        "transaction"
-    ).get(
+    entry = LedgerEntryMeta.objects.select_for_update().get(
         pk=ledger_entry_id
     )
 
