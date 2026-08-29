@@ -1,8 +1,9 @@
 from django.core.exceptions import ValidationError
+from core.models import User
 from django.db import transaction
 from django.utils import timezone
 from core.signals import register_service_signal
-from hordak.models import Transaction, Leg
+from hordak.models import Transaction, Leg, AccountType
 from datetime import datetime as py_datetime
 from ledger.models import (
     AccountingPeriod,
@@ -289,7 +290,7 @@ class LedgerEntryService:
             )
 
             mode_replicated = DeploymentConfiguration.OPERATING_MODE_REPLICATED
-            if deployment_config.operating_mode == mode_replicated:
+            if deployment_config and deployment_config.operating_mode == mode_replicated:
                 transaction.on_commit(
                     lambda: replicate_entry.delay(
                         meta.id,
@@ -432,6 +433,7 @@ class PeriodService:
         cls._validate_chronological_order(start_date)
 
         with transaction.atomic():
+            core_user = User.objects.filter(id=user.id).first()
 
             if not user:
                 raise ValidationError(
@@ -442,7 +444,7 @@ class PeriodService:
                 end_date=end_date,
                 name=name,
                 code=code,
-                audit_user_id=user._u.id,
+                audit_user_id=core_user.i_user.id,
                 status=AccountingPeriod.STATUS_OPEN,
             )
 
@@ -475,7 +477,8 @@ class PeriodService:
                 raise ValidationError(
                     "Cannot perform this action without user provided"
                 )
-            period.audit_user_id = user._u.id
+            core_user = User.objects.filter(id=user.id).first()
+            period.audit_user_id = core_user.i_user.id
 
             period.save(
                 username=user.username,
@@ -508,7 +511,7 @@ class PeriodService:
             deployment_config.retained_earnings_account
         )
 
-        if retained_earnings_account.type in ["IN", "EX"]:
+        if retained_earnings_account.type in [AccountType.income, AccountType.expense]:
             raise ValidationError(
                 "Retained earnings account must not be an "
                 "Income or Expense account"
@@ -536,12 +539,13 @@ class PeriodService:
 
             cls._validate_earliest_non_closed_period(period)
 
+            types = [AccountType.income, AccountType.expense]
             snapshots = list(
                 AccountBalanceSnapshot.objects
                 .select_related("account")
                 .filter(
                     accounting_period=period,
-                    account__type__in=["IN", "EX"],
+                    account__type__in=types,
                 )
                 .order_by("account_id")
             )
@@ -606,8 +610,9 @@ class PeriodService:
                 raise ValidationError(
                     "Cannot perform this action without user provided"
                 )
-            period.audit_user_id_closed = user._u.id
-            period.closed_by = user._u.id
+            core_user = User.objects.filter(id=user.id).first()
+            period.audit_user_id_closed = core_user.i_user.id
+            period.closed_by = core_user.i_user.id
 
             period.save(
                 username=user.username,
@@ -648,7 +653,8 @@ class PeriodService:
                     raise ValidationError(
                         "Cannot perform this action without user provided"
                     )
-            period.audit_user_id = user._u.id
+            core_user = User.objects.filter(id=user.id).first()
+            period.audit_user_id = core_user.i_user.id
 
             period.save(
                 username=user.username,

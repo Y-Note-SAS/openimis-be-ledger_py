@@ -90,6 +90,8 @@ class AccountingPeriod(core_models.HistoryModel):
 
     closing_transaction = models.ForeignKey(
         Transaction,
+        # Preserve historical audit records by not cascading deletions;
+        # use DO_NOTHING to retain the foreign key value even if the referenced row is removed.
         models.DO_NOTHING,
         db_column='ClosingTransactionID',
         null=True,
@@ -139,6 +141,8 @@ class LedgerJournal(core_models.HistoryModel):
     name = models.CharField(db_column='Name', max_length=100, blank=True, null=True, unique=True)
     code = models.CharField(db_column='Code', max_length=50, blank=True, null=True, unique=True)
     type = models.CharField(db_column='Type', max_length=50, blank=True, null=True)
+    # Preserve historical audit records by not cascading deletions;
+    # use DO_NOTHING to retain the foreign key value even if the referenced row is removed.
     sequence_id = models.ForeignKey(Sequence, models.DO_NOTHING, db_column='SequenceID', related_name="sequencies")
     default_credit_account_id = models.ForeignKey(
         Account, models.DO_NOTHING, db_column='DefaultCreditAccountId', related_name="defaultcreditaccounts")
@@ -188,6 +192,8 @@ class AnalyticValue(core_models.HistoryModel):
         (PARTY_PAYMENT_POINT_MANAGER, "Payment Point Manager"),
     )
 
+    # Preserve historical audit records by not cascading deletions;
+    # use DO_NOTHING to retain the foreign key value even if the referenced row is removed.
     axis = models.ForeignKey(
         AnalyticAxis,
         models.DO_NOTHING,
@@ -239,6 +245,8 @@ class AnalyticValue(core_models.HistoryModel):
 
 class LegTag(core_models.HistoryModel):
 
+    # Preserve historical audit records by not cascading deletions;
+    # use DO_NOTHING to retain the foreign key value even if the referenced row is removed.
     leg = models.ForeignKey(
         Leg,
         models.DO_NOTHING,
@@ -313,6 +321,8 @@ class LedgerEntryMeta(core_models.HistoryModel):
         ("correction", "Correction"),
     )
 
+    # Preserve historical audit records by not cascading deletions;
+    # use DO_NOTHING to retain the foreign key value even if the referenced row is removed.
     transaction = models.OneToOneField(
         Transaction,
         models.DO_NOTHING,
@@ -393,6 +403,8 @@ class DeploymentConfiguration(core_models.HistoryModel):
         max_length=10,
     )
 
+    # Preserve historical audit records by not cascading deletions;
+    # use DO_NOTHING to retain the foreign key value even if the referenced row is removed.
     retained_earnings_account = models.ForeignKey(
         Account,
         models.DO_NOTHING,
@@ -430,6 +442,8 @@ class UnmappedFinancialEvent(core_models.HistoryModel):
 
 
 class PartyLedgerBalance(core_models.HistoryModel):
+    # Preserve historical audit records by not cascading deletions;
+    # use DO_NOTHING to retain the foreign key value even if the referenced row is removed.
     accounting_period = models.ForeignKey(
         AccountingPeriod,
         models.DO_NOTHING,
@@ -478,6 +492,8 @@ class PartyLedgerBalance(core_models.HistoryModel):
 
 class AccountBalanceSnapshot(core_models.HistoryModel):
 
+    # Preserve historical audit records by not cascading deletions;
+    # use DO_NOTHING to retain the foreign key value even if the referenced row is removed.
     accounting_period = models.ForeignKey(
         AccountingPeriod,
         models.DO_NOTHING,
@@ -544,6 +560,8 @@ class ExternalReplicationRecord(core_models.HistoryModel):
         (TARGET_SAGE, TARGET_SAGE),
     ]
 
+    # Preserve historical audit records by not cascading deletions;
+    # use DO_NOTHING to retain the foreign key value even if the referenced row is removed.
     ledger_entry = models.ForeignKey(
         LedgerEntryMeta,
         on_delete=models.DO_NOTHING,
@@ -590,6 +608,8 @@ class ExternalReplicationRecord(core_models.HistoryModel):
 
 class ManualReviewQueueItem(core_models.HistoryModel):
 
+    # Preserve historical audit records by not cascading deletions;
+    # use DO_NOTHING to retain the foreign key value even if the referenced row is removed.
     replication_record = models.OneToOneField(
         ExternalReplicationRecord,
         on_delete=models.DO_NOTHING,

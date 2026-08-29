@@ -1,6 +1,7 @@
 import graphene
 from django.contrib.auth.models import AnonymousUser
 from decimal import Decimal
+import logging
 from django.db.models import Sum
 from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError
@@ -31,9 +32,11 @@ from .models import (
     AnalyticAxis,
     LedgerEntryMeta,
     AccountingPeriod,
-    ManualReviewQueueItem
+    ManualReviewQueueItem,
+    DeploymentConfiguration
 )
 from .apps import LedgerConfig
+logger = logging.getLogger(__name__)
 
 
 class Query(graphene.ObjectType):
@@ -108,9 +111,23 @@ class Query(graphene.ObjectType):
         if type(info.context.user) is AnonymousUser or not info.context.user.id:
             raise ValidationError("mutation.authentication_required")
         if not info.context.user.has_perms(
-                LedgerConfig.gql_mutation_manage_periods_perms):
+                LedgerConfig.gql_query_ledger_perms):
             raise PermissionDenied(_("unauthorized"))
         queryset = AccountingPeriod.objects.filter(is_deleted=False).all()
+
+        return queryset.distinct()
+
+    def resolve_deployment_configuration(
+        self,
+        info,
+        **kwargs,
+    ):
+        if type(info.context.user) is AnonymousUser or not info.context.user.id:
+            raise ValidationError("mutation.authentication_required")
+        if not info.context.user.has_perms(
+                LedgerConfig.gql_mutation_legder_admin_perms):
+            raise PermissionDenied(_("unauthorized"))
+        queryset = DeploymentConfiguration.objects.filter(is_deleted=False).all()
 
         return queryset.distinct()
 
@@ -119,7 +136,7 @@ class Query(graphene.ObjectType):
         info,
         **kwargs,
     ):
-        print("get ManualReviewQueueItem...")
+        logger.debug("get ManualReviewQueueItem...")
         if type(info.context.user) is AnonymousUser or not info.context.user.id:
             raise ValidationError("mutation.authentication_required")
         if not info.context.user.has_perms(

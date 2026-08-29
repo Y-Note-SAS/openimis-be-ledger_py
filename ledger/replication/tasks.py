@@ -26,12 +26,16 @@ def replicate_entry(
 
     # Idempotency
 
-    record = ExternalReplicationRecord(
-        ledger_entry=entry,
-        target_system=target_system,
+    record = ExternalReplicationRecord.objects.filter(
         idempotency_key=f"{target_system}:{entry.transaction.uuid}"
-    )
-    record.save(username=user.username)
+    ).first()
+    if not record:
+        record = ExternalReplicationRecord(
+            ledger_entry=entry,
+            target_system=target_system,
+            idempotency_key=f"{target_system}:{entry.transaction.uuid}"
+        )
+        record.save(username=user.username)
 
     adapter = get_adapter(target_system)
 

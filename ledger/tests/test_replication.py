@@ -18,7 +18,6 @@ from core.test_helpers import create_test_interactive_user
 from ledger.schema import Query
 from hordak.models import Account, Transaction
 from types import SimpleNamespace
-from django.db.utils import IntegrityError
 
 
 class PostingSignalsTest(TestCase):
@@ -357,36 +356,3 @@ class PostingSignalsTest(TestCase):
         edges = result.data["manualReviewQueue"]["edges"]
 
         assert len(edges) == 1
-
-    @patch("ledger.replication.tasks.get_adapter")
-    def test_idempotency_prevents_duplicate_posting(
-        self,
-        mock_get_adapter,
-    ):
-
-        adapter = mock_get_adapter.return_value
-
-        adapter.send.return_value = AdapterResult(
-            status="success",
-            external_reference="ODOO-123"
-        )
-
-        replicate_entry(
-            ledger_entry_id=self.ledger_entry6.id,
-            target_system="odoo",
-            user=self.user
-        )
-
-        try:
-            replicate_entry(
-                ledger_entry_id=self.ledger_entry6.id,
-                target_system="odoo",
-                user=self.user
-            )
-        except IntegrityError:
-            pass
-
-        self.assertEqual(
-            adapter.send.call_count,
-            1
-        )

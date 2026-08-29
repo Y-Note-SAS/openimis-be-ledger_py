@@ -1,9 +1,10 @@
 import graphene
-from hordak.models import Account, Transaction
+import logging
+from hordak.models import Account, Transaction, AccountType
 from core.schema import OpenIMISMutation
 from django.contrib.auth.models import AnonymousUser
 from django.utils.translation import gettext as _
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, PermissionDenied
 from .models import (
     DeploymentConfiguration,
     AccountingPeriod,
@@ -12,6 +13,8 @@ from .models import (
 )
 from .services import PeriodService
 from datetime import datetime
+from .apps import LedgerConfig
+logger = logging.getLogger(__name__)
 
 
 class CreateDeploymentConfigurationInputType(OpenIMISMutation.Input):
@@ -97,6 +100,9 @@ class CreateDeploymentConfigurationMutation(OpenIMISMutation):
                 _("mutation.authentication_required")
             )
 
+        if not user.has_perms(LedgerConfig.gql_mutation_legder_admin_perms):
+            raise PermissionDenied(_("unauthorized"))
+
         operating_mode = data.get("operating_mode", None)
         external_system = data.get("external_system", None)
         currency_code = data.get("currency_code", None)
@@ -169,6 +175,8 @@ class CreateAccountMutation(OpenIMISMutation):
             raise ValidationError(
                 _("mutation.authentication_required")
             )
+        if not user.has_perms(LedgerConfig.gql_mutation_manage_periods_perms):
+            raise PermissionDenied(_("unauthorized"))
 
         name = data.get("name", None)
         parent_id = data.get("parent_id", None)
@@ -176,9 +184,8 @@ class CreateAccountMutation(OpenIMISMutation):
         code = data.get("code", None)
         is_bank_account = data.get("is_bank_account", None)
         acc_type = data.get("type", None)
-        is_bank_account = data.get("is_bank_account", None)
-        currencies = data.get("currencies", str({}))
-        print("currencies ", currencies)
+        currencies = data.get("currencies", {})
+        logger.debug("currencies %s", currencies)
 
         if "client_mutation_id" in data:
             data.pop("client_mutation_id")
@@ -194,7 +201,15 @@ class CreateAccountMutation(OpenIMISMutation):
                     _("The specified parent account was not found")
                 )
 
-        if acc_type not in ["AS", "LI", "IN", "EX", "EQ", "TR"]:
+        acc_types = [
+            AccountType.asset,
+            AccountType.liability,
+            AccountType.income,
+            AccountType.expense,
+            AccountType.equity,
+            AccountType.trading
+        ]
+        if acc_type not in acc_types:
             raise ValidationError(
                 _("Account type must be eigther AS, LI, IN, EX, EQ, TR")
             )
@@ -222,12 +237,15 @@ class OpenAccountingPeriodMutation(OpenIMISMutation):
 
     @classmethod
     def async_mutate(cls, user, **data):
-        print("Locking Period...")
+        logger.debug("Locking Period...")
 
         if type(user) is AnonymousUser or not user:
             raise ValidationError(
                 _("mutation.authentication_required")
             )
+        if not user.has_perms(LedgerConfig.gql_mutation_legder_admin_perms):
+            raise PermissionDenied(_("unauthorized"))
+
         PeriodService.open(
             start_date=data["start_date"],
             end_date=data["end_date"],
@@ -249,12 +267,15 @@ class LockAccountingPeriodMutation(OpenIMISMutation):
 
     @classmethod
     def async_mutate(cls, user, **data):
-        print("Locking Period...")
+        logger.debug("Locking Period...")
 
         if type(user) is AnonymousUser or not user:
             raise ValidationError(
                 _("mutation.authentication_required")
             )
+
+        if not user.has_perms(LedgerConfig.gql_mutation_legder_admin_perms):
+            raise PermissionDenied(_("unauthorized"))
 
         try:
             preriod = AccountingPeriod.objects.get(id=data["id"])
@@ -281,12 +302,15 @@ class CloseAccountingPeriodMutation(OpenIMISMutation):
 
     @classmethod
     def async_mutate(cls, user, **data):
-        print("Closing Period...")
+        logger.debug("Closing Period...")
 
         if type(user) is AnonymousUser or not user:
             raise ValidationError(
                 _("mutation.authentication_required")
             )
+
+        if not user.has_perms(LedgerConfig.gql_mutation_legder_admin_perms):
+            raise PermissionDenied(_("unauthorized"))
 
         try:
             preriod = AccountingPeriod.objects.get(id=data["id"])
@@ -313,12 +337,15 @@ class ReopenAccountingPeriodMutation(OpenIMISMutation):
 
     @classmethod
     def async_mutate(cls, user, **data):
-        print("Reopening Period...")
+        logger.debug("Reopening Period...")
 
         if type(user) is AnonymousUser or not user:
             raise ValidationError(
                 _("mutation.authentication_required")
             )
+
+        if not user.has_perms(LedgerConfig.gql_mutation_legder_admin_perms):
+            raise PermissionDenied(_("unauthorized"))
 
         try:
             preriod = AccountingPeriod.objects.get(id=data["id"])
@@ -351,11 +378,14 @@ class ManualReviewItemMutation(OpenIMISMutation):
                 _("mutation.authentication_required")
             )
 
+        if not user.has_perms(LedgerConfig.gql_mutation_legder_admin_perms):
+            raise PermissionDenied(_("unauthorized"))
+
         replication_record_id = data.get("replication_record_id", None)
         resolved_at = data.get("resolved_at", None)
 
         resolved_at = f"{resolved_at}T{datetime.now().strftime('%H:%M:%S+00:00')}"
-        print("resolved_at ", resolved_at)
+        logger.debug("resolved_at %s", resolved_at)
 
         resolved_by_transaction_id = data.get("resolved_by_transaction", None)
         resolution_note = data.get("resolution_note", None)
