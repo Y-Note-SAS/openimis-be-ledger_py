@@ -12,7 +12,7 @@ from .models import (
     ExternalReplicationRecord
 )
 from .services import PeriodService
-from datetime import datetime
+from datetime import datetime, timezone
 from .apps import LedgerConfig
 logger = logging.getLogger(__name__)
 
@@ -100,7 +100,7 @@ class CreateDeploymentConfigurationMutation(OpenIMISMutation):
                 _("mutation.authentication_required")
             )
 
-        if not user.has_perms(LedgerConfig.gql_mutation_legder_admin_perms):
+        if not user.has_perms(LedgerConfig.gql_mutation_ledger_admin_perms):
             raise PermissionDenied(_("unauthorized"))
 
         operating_mode = data.get("operating_mode", None)
@@ -125,7 +125,7 @@ class CreateDeploymentConfigurationMutation(OpenIMISMutation):
                 _("The specified account was not found")
             )
 
-        if account.type in [Account.TYPES.expense, Account.TYPES.income]:
+        if account.type in [AccountType.expense, AccountType.income]:
             raise ValidationError(
                 _("retained earnings account type should not be income / expense")
             )
@@ -175,7 +175,7 @@ class CreateAccountMutation(OpenIMISMutation):
             raise ValidationError(
                 _("mutation.authentication_required")
             )
-        if not user.has_perms(LedgerConfig.gql_mutation_manage_periods_perms):
+        if not user.has_perms(LedgerConfig.gql_mutation_ledger_admin_perms):
             raise PermissionDenied(_("unauthorized"))
 
         name = data.get("name", None)
@@ -243,7 +243,7 @@ class OpenAccountingPeriodMutation(OpenIMISMutation):
             raise ValidationError(
                 _("mutation.authentication_required")
             )
-        if not user.has_perms(LedgerConfig.gql_mutation_legder_admin_perms):
+        if not user.has_perms(LedgerConfig.gql_mutation_ledger_admin_perms):
             raise PermissionDenied(_("unauthorized"))
 
         PeriodService.open(
@@ -274,7 +274,7 @@ class LockAccountingPeriodMutation(OpenIMISMutation):
                 _("mutation.authentication_required")
             )
 
-        if not user.has_perms(LedgerConfig.gql_mutation_legder_admin_perms):
+        if not user.has_perms(LedgerConfig.gql_mutation_ledger_admin_perms):
             raise PermissionDenied(_("unauthorized"))
 
         try:
@@ -309,7 +309,7 @@ class CloseAccountingPeriodMutation(OpenIMISMutation):
                 _("mutation.authentication_required")
             )
 
-        if not user.has_perms(LedgerConfig.gql_mutation_legder_admin_perms):
+        if not user.has_perms(LedgerConfig.gql_mutation_ledger_admin_perms):
             raise PermissionDenied(_("unauthorized"))
 
         try:
@@ -344,7 +344,7 @@ class ReopenAccountingPeriodMutation(OpenIMISMutation):
                 _("mutation.authentication_required")
             )
 
-        if not user.has_perms(LedgerConfig.gql_mutation_legder_admin_perms):
+        if not user.has_perms(LedgerConfig.gql_mutation_ledger_admin_perms):
             raise PermissionDenied(_("unauthorized"))
 
         try:
@@ -378,7 +378,7 @@ class ManualReviewItemMutation(OpenIMISMutation):
                 _("mutation.authentication_required")
             )
 
-        if not user.has_perms(LedgerConfig.gql_mutation_legder_admin_perms):
+        if not user.has_perms(LedgerConfig.gql_mutation_ledger_admin_perms):
             raise PermissionDenied(_("unauthorized"))
 
         replication_record_id = data.get("replication_record_id", None)
@@ -386,10 +386,11 @@ class ManualReviewItemMutation(OpenIMISMutation):
         if not resolved_at:
             resolved_at = datetime.now().date()
 
-        resolved_at = f"{resolved_at}T{datetime.now().strftime('%H:%M:%S+00:00')}"
+        now_utc = datetime.now(timezone.utc)
+        resolved_at = datetime.combine(resolved_at, now_utc.time(), tzinfo=timezone.utc)
         logger.debug("resolved_at %s", resolved_at)
 
-        resolved_by_transaction_id = data.get("resolved_by_transaction", None)
+        resolved_by_transaction_id = data.get("resolved_by_transaction_id", None)
         resolution_note = data.get("resolution_note", None)
 
         if "client_mutation_id" in data:

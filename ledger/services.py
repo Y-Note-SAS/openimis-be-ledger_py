@@ -295,7 +295,7 @@ class LedgerEntryService:
                     lambda: replicate_entry.delay(
                         meta.id,
                         deployment_config.external_system,
-                        user
+                        username
                     )
                 )
             return meta

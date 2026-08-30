@@ -215,7 +215,7 @@ class PostingSignalsTest(TestCase):
         replicate_entry(
             ledger_entry_id=self.ledger_entry.id,
             target_system="odoo",
-            user=self.user
+            username=self.user.username
         )
 
         record = ExternalReplicationRecord.objects.get(
@@ -253,7 +253,7 @@ class PostingSignalsTest(TestCase):
         replicate_entry(
             ledger_entry_id=self.ledger_entry4.id,
             target_system="odoo",
-            user=self.user
+            username=self.user.username
         )
 
         record = ExternalReplicationRecord.objects.get(
@@ -351,7 +351,7 @@ class PostingSignalsTest(TestCase):
             context_value=self.context
         )
 
-        assert "errors" not in result.data
+        assert result.errors is None
 
         edges = result.data["manualReviewQueue"]["edges"]
 

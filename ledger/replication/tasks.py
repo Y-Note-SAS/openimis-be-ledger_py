@@ -15,7 +15,7 @@ def replicate_entry(
     self,
     ledger_entry_id,
     target_system,
-    user
+    username
 ):
     # Chargement
     entry = LedgerEntryMeta.objects.select_for_update().get(
@@ -33,7 +33,7 @@ def replicate_entry(
             target_system=target_system,
             idempotency_key=f"{target_system}:{entry.transaction.uuid}"
         )
-        record.save(username=user.username)
+        record.save(username=username)
 
     adapter = get_adapter(target_system)
 
@@ -56,7 +56,7 @@ def replicate_entry(
         if record.attempt_count < MAX_ATTEMPTS:
             record.attempt_count += 1
             record.save(
-                username=user.username,
+                username=username,
                 update_fields=[
                     "attempt_count",
                 ]
@@ -70,12 +70,12 @@ def replicate_entry(
             ExternalReplicationRecord.STATUS_UNCONFIRMED
         )
 
-        record.save(username=user.username)
+        record.save(username=username)
 
         manual_revue = ManualReviewQueueItem(
             replication_record=record
         )
-        manual_revue.save(username=user.username)
+        manual_revue.save(username=username)
 
         return
     # Rejet
@@ -89,12 +89,12 @@ def replicate_entry(
             result.rejection_reason
         )
 
-        record.save(username=user.username)
+        record.save(username=username)
 
         manual_revue = ManualReviewQueueItem(
             replication_record=record
         )
-        manual_revue.save(username=user.username)
+        manual_revue.save(username=username)
 
         return
 
@@ -109,4 +109,4 @@ def replicate_entry(
     )
     record.last_attempted_at = timezone.now()
 
-    record.save(username=user.username)
+    record.save(username=username)

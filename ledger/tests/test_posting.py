@@ -1127,7 +1127,6 @@ class PostingSignalsTest(TestCase):
             variable_values=variables,
             context_value=self.context
         )
-        print("res ", result)
         assert result.errors is None
         closed_period = AccountingPeriod.objects.get(code="2019-01")
         assert closed_period.status == AccountingPeriod.STATUS_CLOSED
