@@ -10,7 +10,6 @@ from ledger.models import (
     LedgerJournal,
     Sequence,
 )
-
 from core.test_helpers import create_test_interactive_user
 
 
