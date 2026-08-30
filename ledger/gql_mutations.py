@@ -293,7 +293,7 @@ class CloseAccountingPeriodMutation(OpenIMISMutation):
 
     _mutation_module = "ledger"
 
-    _mutation_class = "LockAccountingPeriodMutation"
+    _mutation_class = "CloseAccountingPeriodMutation"
     _model = AccountingPeriod
 
     class Input(CloseAccountingPeriodInputType):
@@ -327,7 +327,7 @@ class ReopenAccountingPeriodMutation(OpenIMISMutation):
 
     _mutation_module = "ledger"
 
-    _mutation_class = "LockAccountingPeriodMutation"
+    _mutation_class = "ReopenAccountingPeriodMutation"
     _model = AccountingPeriod
 
     class Input(ReopenAccountingPeriodInputType):
