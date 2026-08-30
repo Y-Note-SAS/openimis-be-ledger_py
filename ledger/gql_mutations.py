@@ -211,7 +211,7 @@ class CreateAccountMutation(OpenIMISMutation):
         ]
         if acc_type not in acc_types:
             raise ValidationError(
-                _("Account type must be eigther AS, LI, IN, EX, EQ, TR")
+                _("Account type must be either AS, LI, IN, EX, EQ, TR")
             )
 
         Account.objects.create(
@@ -277,9 +277,8 @@ class LockAccountingPeriodMutation(OpenIMISMutation):
         if not user.has_perms(LedgerConfig.gql_mutation_ledger_admin_perms):
             raise PermissionDenied(_("unauthorized"))
 
-        try:
-            period = AccountingPeriod.objects.filter(id=data["id"], is_deleted=False).first()
-        except AccountingPeriod.DoesNotExist:
+        period = AccountingPeriod.objects.filter(id=data["id"], is_deleted=False).first()
+        if not period:
             raise ValidationError(
                 _("The specified accounting period was not found")
             )
@@ -312,9 +311,8 @@ class CloseAccountingPeriodMutation(OpenIMISMutation):
         if not user.has_perms(LedgerConfig.gql_mutation_ledger_admin_perms):
             raise PermissionDenied(_("unauthorized"))
 
-        try:
-            period = AccountingPeriod.objects.filter(id=data["id"], is_deleted=False).first()
-        except AccountingPeriod.DoesNotExist:
+        period = AccountingPeriod.objects.filter(id=data["id"], is_deleted=False).first()
+        if not period:
             raise ValidationError(
                 _("The specified accounting period was not found")
             )
@@ -347,9 +345,8 @@ class ReopenAccountingPeriodMutation(OpenIMISMutation):
         if not user.has_perms(LedgerConfig.gql_mutation_ledger_admin_perms):
             raise PermissionDenied(_("unauthorized"))
 
-        try:
-            period = AccountingPeriod.objects.filter(id=data["id"], is_deleted=False).first()
-        except AccountingPeriod.DoesNotExist:
+        period = AccountingPeriod.objects.filter(id=data["id"], is_deleted=False).first()
+        if not period:
             raise ValidationError(
                 _("The specified accounting period was not found")
             )
@@ -398,12 +395,11 @@ class ManualReviewItemMutation(OpenIMISMutation):
         if "client_mutation_label" in data:
             data.pop("client_mutation_label")
 
-        try:
-            replication_record_id =\
-                ExternalReplicationRecord.objects.filter(
-                    id=data["replication_record_id"], is_deleted=False
-                ).first()
-        except ExternalReplicationRecord.DoesNotExist:
+        replication_record_id =\
+            ExternalReplicationRecord.objects.filter(
+                id=data["replication_record_id"], is_deleted=False
+            ).first()
+        if not replication_record_id:
             raise ValidationError(
                 _("The specified replication record was not found")
             )

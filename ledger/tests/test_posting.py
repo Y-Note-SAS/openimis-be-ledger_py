@@ -1221,8 +1221,6 @@ class PostingSignalsTest(TestCase):
             context_value=self.context
         )
 
-        print("result2 ", result)
-
         assert result.errors is None
         item = ManualReviewQueueItem.objects.get(replication_record=record.id)
 

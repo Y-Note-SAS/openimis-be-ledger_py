@@ -453,7 +453,6 @@ class PeriodService:
     @classmethod
     @register_service_signal("ledger_service.lock_period")
     def lock(cls, period, user=None):
-        print("period est ", period)
 
         with transaction.atomic():
 
