@@ -218,9 +218,10 @@ class PostingSignalsTest(TestCase):
             username=self.user.username
         )
 
-        record = ExternalReplicationRecord.objects.get(
-            ledger_entry=self.ledger_entry
-        )
+        record = ExternalReplicationRecord.objects.filter(
+            ledger_entry=self.ledger_entry,
+            is_deleted=False
+        ).first()
 
         self.assertEqual(
             record.status,
@@ -256,13 +257,14 @@ class PostingSignalsTest(TestCase):
             username=self.user.username
         )
 
-        record = ExternalReplicationRecord.objects.get(
-            ledger_entry=self.ledger_entry4
-        )
+        record = ExternalReplicationRecord.objects.filter(
+            ledger_entry=self.ledger_entry4,
+            is_deleted=False
+        ).first()
 
-        review_item = ManualReviewQueueItem.objects.get(
+        review_item = ManualReviewQueueItem.objects.filter(
             replication_record=record
-        )
+        ).first()
 
         self.assertEqual(
             record.status,
@@ -289,10 +291,6 @@ class PostingSignalsTest(TestCase):
     def test_resolve_review_item_links_correcting_transaction(
         self,
     ):
-
-        # record = ExternalReplicationRecord.objects.get(
-        #     ledger_entry=self.ledger_entry4
-        # )
         record = ExternalReplicationRecord(
             ledger_entry=self.ledger_entry,
             target_system="odoo",

@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 import core
 from django.test import TestCase
-from hordak.models import AccountType
+from hordak.models import AccountType, Transaction
 from ledger.models import (
     AccountingPeriod,
     Account,
@@ -18,7 +18,9 @@ from ledger.models import (
     AnalyticAxis,
     AnalyticValue,
     LegTag,
-    AccountBalanceSnapshot
+    AccountBalanceSnapshot,
+    ExternalReplicationRecord,
+    ManualReviewQueueItem
 )
 from policyholder.models import PolicyHolder
 from claim.test_helpers import create_test_claim
@@ -1130,3 +1132,98 @@ class PostingSignalsTest(TestCase):
         assert result.errors is None
         closed_period = AccountingPeriod.objects.get(code="2019-01")
         assert closed_period.status == AccountingPeriod.STATUS_CLOSED
+
+    def test_create_deployment_config(self):
+        core.async_mutations = False
+        mutation = """
+            mutation createDeploymentConfiguration($input: CreateDeploymentConfigurationMutationInput!) {
+                createDeploymentConfiguration(input: $input) {
+                    clientMutationId
+                    internalId
+                }
+            }
+        """
+
+        variables = {
+            "input": {
+                "clientMutationId": "ca18e62f-5f29-4158-bec8-042b9b935727",
+                "clientMutationLabel": "Créer une configuration",
+                "operatingMode": "local_only",
+                "currencyCode": "XAF",
+                "retainedEarningsAccountId": str(self.account.uuid)
+            }
+        }
+
+        schema = graphene.Schema(
+            query=Query,
+            mutation=Mutation,
+        )
+
+        result = schema.execute(
+            mutation,
+            variable_values=variables,
+            context_value=self.context
+        )
+
+        assert result.errors is None
+        config = DeploymentConfiguration.objects.filter(
+            retained_earnings_account=self.account).order_by("-id").first()
+
+        assert config.operating_mode == "local_only"
+
+    def test_create_manual_review(self):
+        core.async_mutations = False
+        transaction2 = Transaction.objects.create()
+        ledger_entry = LedgerEntryMeta(
+            transaction=transaction2,
+            journal=self.sales_journal,
+            accounting_period=self.period,
+            source_event_type="claim_payment",
+            source_event_reference="META-002",
+        )
+        ledger_entry.save(username=self.user.username)
+
+        record = ExternalReplicationRecord(
+            ledger_entry=ledger_entry,
+            target_system="odoo",
+            idempotency_key="abc",
+            status=ExternalReplicationRecord.STATUS_REJECTED,
+            rejection_reason="Bad account"
+        )
+        record.save(username=self.user.username)
+        mutation = """
+            mutation ManualReviewItemMutation($input: ManualReviewItemMutationInput!) {
+                resolveManualReview(input: $input) {
+                    clientMutationId
+                    internalId
+                }
+            }
+        """
+
+        variables = {
+            "input": {
+                "clientMutationId": "cb18e62f-5f29-4158-bec8-042b9b935727",
+                "clientMutationLabel": "Créer une revue manuelle",
+                "replicationRecordId": str(record.id),
+                "resolvedByTransactionId": str(transaction2.uuid),
+                "resolutionNote": "Test"
+            }
+        }
+
+        schema = graphene.Schema(
+            query=Query,
+            mutation=Mutation,
+        )
+
+        result = schema.execute(
+            mutation,
+            variable_values=variables,
+            context_value=self.context
+        )
+
+        print("result2 ", result)
+
+        assert result.errors is None
+        item = ManualReviewQueueItem.objects.get(replication_record=record.id)
+
+        assert item.resolution_note == "Test"

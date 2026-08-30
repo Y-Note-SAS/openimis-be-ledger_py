@@ -285,9 +285,7 @@ class LedgerEntryService:
                     username=username
                 )
 
-            deployment_config = (
-                DeploymentConfiguration.objects.first()
-            )
+            deployment_config = DeploymentConfiguration.objects.filter(is_deleted=False).first()
 
             mode_replicated = DeploymentConfiguration.OPERATING_MODE_REPLICATED
             if deployment_config and deployment_config.operating_mode == mode_replicated:
@@ -455,6 +453,7 @@ class PeriodService:
     @classmethod
     @register_service_signal("ledger_service.lock_period")
     def lock(cls, period, user=None):
+        print("period est ", period)
 
         with transaction.atomic():
 

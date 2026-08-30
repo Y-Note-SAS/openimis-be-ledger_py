@@ -278,7 +278,7 @@ class LockAccountingPeriodMutation(OpenIMISMutation):
             raise PermissionDenied(_("unauthorized"))
 
         try:
-            period = AccountingPeriod.objects.get(id=data["id"])
+            period = AccountingPeriod.objects.filter(id=data["id"], is_deleted=False).first()
         except AccountingPeriod.DoesNotExist:
             raise ValidationError(
                 _("The specified accounting period was not found")
@@ -313,7 +313,7 @@ class CloseAccountingPeriodMutation(OpenIMISMutation):
             raise PermissionDenied(_("unauthorized"))
 
         try:
-            period = AccountingPeriod.objects.get(id=data["id"])
+            period = AccountingPeriod.objects.filter(id=data["id"], is_deleted=False).first()
         except AccountingPeriod.DoesNotExist:
             raise ValidationError(
                 _("The specified accounting period was not found")
@@ -348,7 +348,7 @@ class ReopenAccountingPeriodMutation(OpenIMISMutation):
             raise PermissionDenied(_("unauthorized"))
 
         try:
-            period = AccountingPeriod.objects.get(id=data["id"])
+            period = AccountingPeriod.objects.filter(id=data["id"], is_deleted=False).first()
         except AccountingPeriod.DoesNotExist:
             raise ValidationError(
                 _("The specified accounting period was not found")
@@ -400,7 +400,9 @@ class ManualReviewItemMutation(OpenIMISMutation):
 
         try:
             replication_record_id =\
-                ExternalReplicationRecord.objects.get(id=data["replication_record_id"])
+                ExternalReplicationRecord.objects.filter(
+                    id=data["replication_record_id"], is_deleted=False
+                ).first()
         except ExternalReplicationRecord.DoesNotExist:
             raise ValidationError(
                 _("The specified replication record was not found")
@@ -409,7 +411,7 @@ class ManualReviewItemMutation(OpenIMISMutation):
         if resolved_by_transaction_id:
             try:
                 resolved_by_transaction_id =\
-                    Transaction.objects.get(id=resolved_by_transaction_id)
+                    Transaction.objects.get(uuid=resolved_by_transaction_id)
             except Transaction.DoesNotExist:
                 raise ValidationError(
                     _("The specified transaction resolved by was not found")
