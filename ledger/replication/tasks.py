@@ -50,7 +50,7 @@ def replicate_entry(
     ]:
         return
 
-    # Timeout
+    # Timeout 
     if result.status == "timeout":
 
         if record.attempt_count < MAX_ATTEMPTS:
