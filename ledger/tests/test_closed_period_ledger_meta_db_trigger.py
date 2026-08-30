@@ -2,7 +2,6 @@ from django.db import DatabaseError
 from django.test import TestCase
 
 from hordak.models import Transaction
-
 from ledger.models import (
     Account,
     AccountingPeriod,
