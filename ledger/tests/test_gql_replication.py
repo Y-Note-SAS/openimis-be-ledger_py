@@ -5,9 +5,12 @@ from unittest.mock import patch
 from ledger.replication.tasks import (
     replicate_entry
 )
+import core
+from hordak.models import Transaction, Account
 from ledger.models import (
     ExternalReplicationRecord,
     ManualReviewQueueItem,
+    DeploymentConfiguration,
     Sequence,
     AccountingPeriod,
     LedgerJournal,
@@ -15,8 +18,7 @@ from ledger.models import (
 )
 from ledger.services import ManualReviewService
 from core.test_helpers import create_test_interactive_user
-from ledger.schema import Query
-from hordak.models import Account, Transaction
+from ledger.schema import Query, Mutation
 from types import SimpleNamespace
 
 
@@ -54,27 +56,27 @@ class PostingSignalsTest(TestCase):
         )
 
         # Create journal
-        journal = LedgerJournal(
+        self.journal = LedgerJournal(
             code="GENERAL_META",
             name="General Journal Meta",
             sequence_id=self.sequence,
             default_credit_account_id=self.cash_account,
             default_debit_account_id=self.expense_account,
         )
-        journal.save(username=self.user.username)
+        self.journal.save(username=self.user.username)
 
-        period = AccountingPeriod(
+        self.period = AccountingPeriod(
             name="2026-02",
             code="2026-02",
             status=AccountingPeriod.STATUS_OPEN,
         )
-        period.save(username=self.user.username)
+        self.period.save(username=self.user.username)
 
         transaction = Transaction.objects.create()
         self.ledger_entry = LedgerEntryMeta(
             transaction=transaction,
-            journal=journal,
-            accounting_period=period,
+            journal=self.journal,
+            accounting_period=self.period,
             source_event_type="claim_payment",
             source_event_reference="META-001",
         )
@@ -84,8 +86,8 @@ class PostingSignalsTest(TestCase):
         transaction2 = Transaction.objects.create()
         self.correcting_entry = LedgerEntryMeta(
             transaction=transaction2,
-            journal=journal,
-            accounting_period=period,
+            journal=self.journal,
+            accounting_period=self.period,
             source_event_type="claim_payment",
             source_event_reference="META-002",
         )
@@ -94,8 +96,8 @@ class PostingSignalsTest(TestCase):
         transaction3 = Transaction.objects.create()
         self.ledger_entry2 = LedgerEntryMeta(
             transaction=transaction3,
-            journal=journal,
-            accounting_period=period,
+            journal=self.journal,
+            accounting_period=self.period,
             source_event_type="claim_payment",
             source_event_reference="META-003",
         )
@@ -104,8 +106,8 @@ class PostingSignalsTest(TestCase):
         transaction4 = Transaction.objects.create()
         self.ledger_entry3 = LedgerEntryMeta(
             transaction=transaction4,
-            journal=journal,
-            accounting_period=period,
+            journal=self.journal,
+            accounting_period=self.period,
             source_event_type="claim_payment",
             source_event_reference="META-004",
         )
@@ -114,8 +116,8 @@ class PostingSignalsTest(TestCase):
         transaction5 = Transaction.objects.create()
         self.ledger_entry4 = LedgerEntryMeta(
             transaction=transaction5,
-            journal=journal,
-            accounting_period=period,
+            journal=self.journal,
+            accounting_period=self.period,
             source_event_type="claim_payment",
             source_event_reference="META-005",
         )
@@ -124,8 +126,8 @@ class PostingSignalsTest(TestCase):
         transaction6 = Transaction.objects.create()
         self.ledger_entry5 = LedgerEntryMeta(
             transaction=transaction6,
-            journal=journal,
-            accounting_period=period,
+            journal=self.journal,
+            accounting_period=self.period,
             source_event_type="claim_payment",
             source_event_reference="META-006",
         )
@@ -134,8 +136,8 @@ class PostingSignalsTest(TestCase):
         transaction6 = Transaction.objects.create()
         self.ledger_entry6 = LedgerEntryMeta(
             transaction=transaction6,
-            journal=journal,
-            accounting_period=period,
+            journal=self.journal,
+            accounting_period=self.period,
             source_event_type="claim_payment",
             source_event_reference="META-006",
         )
@@ -354,3 +356,96 @@ class PostingSignalsTest(TestCase):
         edges = result.data["manualReviewQueue"]["edges"]
 
         assert len(edges) == 1
+
+    def test_create_deployment_config(self):
+        core.async_mutations = False
+        mutation = """
+            mutation createDeploymentConfiguration($input: CreateDeploymentConfigurationMutationInput!) {
+                createDeploymentConfiguration(input: $input) {
+                    clientMutationId
+                    internalId
+                }
+            }
+        """
+
+        variables = {
+            "input": {
+                "clientMutationId": "ca18e62f-5f29-4158-bec8-042b9b935727",
+                "clientMutationLabel": "Créer une configuration",
+                "operatingMode": "local_only",
+                "currencyCode": "XAF",
+                "retainedEarningsAccountId": str(self.account.uuid)
+            }
+        }
+
+        schema = graphene.Schema(
+            query=Query,
+            mutation=Mutation,
+        )
+
+        result = schema.execute(
+            mutation,
+            variable_values=variables,
+            context_value=self.context
+        )
+
+        assert result.errors is None
+        config = DeploymentConfiguration.objects.filter(
+            retained_earnings_account=self.account).order_by("-id").first()
+
+        assert config.operating_mode == "local_only"
+
+    def test_create_manual_review(self):
+        core.async_mutations = False
+        transaction2 = Transaction.objects.create()
+        ledger_entry = LedgerEntryMeta(
+            transaction=transaction2,
+            journal=self.journal,
+            accounting_period=self.period,
+            source_event_type="claim_payment",
+            source_event_reference="META-002",
+        )
+        ledger_entry.save(username=self.user.username)
+
+        record = ExternalReplicationRecord(
+            ledger_entry=ledger_entry,
+            target_system="odoo",
+            idempotency_key="abc",
+            status=ExternalReplicationRecord.STATUS_REJECTED,
+            rejection_reason="Bad account"
+        )
+        record.save(username=self.user.username)
+        mutation = """
+            mutation ManualReviewItemMutation($input: ManualReviewItemMutationInput!) {
+                resolveManualReview(input: $input) {
+                    clientMutationId
+                    internalId
+                }
+            }
+        """
+
+        variables = {
+            "input": {
+                "clientMutationId": "cb18e62f-5f29-4158-bec8-042b9b935727",
+                "clientMutationLabel": "Créer une revue manuelle",
+                "replicationRecordId": str(record.id),
+                "resolvedByTransactionId": str(transaction2.uuid),
+                "resolutionNote": "Test"
+            }
+        }
+
+        schema = graphene.Schema(
+            query=Query,
+            mutation=Mutation,
+        )
+
+        result = schema.execute(
+            mutation,
+            variable_values=variables,
+            context_value=self.context
+        )
+
+        assert result.errors is None
+        item = ManualReviewQueueItem.objects.get(replication_record=record.id)
+
+        assert item.resolution_note == "Test"

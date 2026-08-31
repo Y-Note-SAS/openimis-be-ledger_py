@@ -39,11 +39,6 @@ def replicate_entry(
 
         adapter = get_adapter(target_system)
 
-        result = adapter.send(
-            ledger_entry=entry,
-            idempotency_key=record.idempotency_key,
-        )
-
         # Déjà terminé
         if record.status in [
             record.STATUS_SUCCEEDED,
@@ -51,6 +46,11 @@ def replicate_entry(
             record.STATUS_UNCONFIRMED
         ]:
             return
+
+        result = adapter.send(
+            ledger_entry=entry,
+            idempotency_key=record.idempotency_key,
+        )
 
         # Timeout
         if result.status == "timeout":
