@@ -26,7 +26,7 @@ def replicate_entry(
 
         # Idempotency
 
-        record = ExternalReplicationRecord.objects.filter(
+        record = ExternalReplicationRecord.objects.select_for_update().filter(
             idempotency_key=f"{target_system}:{entry.transaction.uuid}"
         ).first()
         if not record:
