@@ -1,11 +1,12 @@
 # ledger/tests/test_posting.py
 from decimal import Decimal
+import graphene
 import uuid
 from types import SimpleNamespace
 from unittest.mock import patch
-
+import core
 from django.test import TestCase
-
+from hordak.models import AccountType, Transaction
 from ledger.models import (
     AccountingPeriod,
     Account,
@@ -16,10 +17,14 @@ from ledger.models import (
     UnmappedFinancialEvent,
     AnalyticAxis,
     AnalyticValue,
-    LegTag
+    LegTag,
+    AccountBalanceSnapshot,
+    ExternalReplicationRecord,
+    ManualReviewQueueItem
 )
 from policyholder.models import PolicyHolder
 from claim.test_helpers import create_test_claim
+from ledger.schema import Mutation, Query
 from ledger.signals import (
     on_claim_valuated,
     on_invoice_issued,
@@ -68,6 +73,17 @@ class PostingSignalsTest(TestCase):
         cls.user = create_test_interactive_user()
 
         create_accounting_periods(cls.user)
+
+        cls.context = SimpleNamespace(
+            user=cls.user
+        )
+
+        cls.income_account = Account.objects.create(
+            code="7001",
+            full_code="7001",
+            name="Income",
+            type="IN",
+        )
 
         policy_holder = PolicyHolder(
             is_deleted=False,
@@ -940,3 +956,272 @@ class PostingSignalsTest(TestCase):
             party_leg_ids,
             funder_leg_ids,
         )
+
+    def test_acccount_creation(self):
+
+        core.async_mutations = False
+        mutation = """
+            mutation CreateAccount($input: CreateAccountMutationInput!) {
+                createAccount(input: $input) {
+                    clientMutationId
+                    internalId
+                }
+            }
+        """
+
+        variables = {
+            "input": {
+                "clientMutationId": "cf18e62f-5f29-4158-bec8-042b9b935727",
+                "clientMutationLabel": "Créer un compte",
+                "name": "Cash Account",
+                "code": "1000",
+                "fullCode": "1000",
+                "type": "AS",
+                "isBankAccount": False
+            }
+        }
+
+        schema = graphene.Schema(
+            query=Query,
+            mutation=Mutation,
+        )
+
+        result = schema.execute(
+            mutation,
+            variable_values=variables,
+            context_value=self.context
+        )
+
+        assert result.errors is None
+        account = Account.objects.get(code="1000")
+
+        assert account.name == "Cash Account"
+        assert account.type == AccountType.asset
+
+    def test_periods_mutation(self):
+        core.async_mutations = False
+        mutation = """
+            mutation OpenAccountingPeriod($input: OpenAccountingPeriodMutationInput!) {
+                openAccountingPeriod(input: $input) {
+                    clientMutationId
+                }
+            }
+        """
+
+        variables = {
+            "input": {
+                "startDate": "2019-01-01",
+                "endDate": "2019-01-31",
+                "name": "Janvier 2019",
+                "code": "2019-01"
+            }
+        }
+
+        schema = graphene.Schema(
+            query=Query,
+            mutation=Mutation,
+        )
+
+        result = schema.execute(
+            mutation,
+            variable_values=variables,
+            context_value=self.context
+        )
+
+        assert result.errors is None
+        period = AccountingPeriod.objects.get(code="2019-01")
+
+        assert period.name == "Janvier 2019"
+        assert period.start_date == date(2019, 1, 1)
+        assert period.status == AccountingPeriod.STATUS_OPEN
+
+        acc_bal_sn = AccountBalanceSnapshot(
+            accounting_period=period,
+            account=self.income_account,
+            debit_amount=Decimal("0"),
+            credit_amount=Decimal("1000"),
+            balance_amount=Decimal("-1000"),
+        )
+        acc_bal_sn.save(username=self.user.username)
+
+        # Lock period
+        mutation = """
+            mutation LockAccountingPeriod($input: LockAccountingPeriodMutationInput!) {
+                lockAccountingPeriod(input: $input) {
+                    clientMutationId
+                }
+            }
+        """
+
+        variables = {
+            "input": {
+                "id": str(period.id)
+            }
+        }
+
+        schema = graphene.Schema(
+            query=Query,
+            mutation=Mutation,
+        )
+
+        result = schema.execute(
+            mutation,
+            variable_values=variables,
+            context_value=self.context
+        )
+        assert result.errors is None
+        locked_period = AccountingPeriod.objects.get(code="2019-01")
+        assert locked_period.status == AccountingPeriod.STATUS_LOCKED
+
+        # Reopen period
+        mutation = """
+            mutation ReopenAccountingPeriod($input: ReopenAccountingPeriodMutationInput!) {
+                reopenAccountingPeriod(input: $input) {
+                    clientMutationId
+                }
+            }
+        """
+
+        variables = {
+            "input": {
+                "id": str(locked_period.id)
+            }
+        }
+
+        schema = graphene.Schema(
+            query=Query,
+            mutation=Mutation,
+        )
+
+        result = schema.execute(
+            mutation,
+            variable_values=variables,
+            context_value=self.context
+        )
+        assert result.errors is None
+        reopened_period = AccountingPeriod.objects.get(code="2019-01")
+        assert reopened_period.status == AccountingPeriod.STATUS_OPEN
+
+        reopened_period.status = AccountingPeriod.STATUS_LOCKED
+        reopened_period.save(username=self.user.username)
+        # Close period
+        mutation = """
+            mutation CloseAccountingPeriod($input: CloseAccountingPeriodMutationInput!) {
+                closeAccountingPeriod(input: $input) {
+                    clientMutationId
+                }
+            }
+        """
+
+        variables = {
+            "input": {
+                "id": str(reopened_period.id)
+            }
+        }
+
+        schema = graphene.Schema(
+            query=Query,
+            mutation=Mutation,
+        )
+
+        result = schema.execute(
+            mutation,
+            variable_values=variables,
+            context_value=self.context
+        )
+        assert result.errors is None
+        closed_period = AccountingPeriod.objects.get(code="2019-01")
+        assert closed_period.status == AccountingPeriod.STATUS_CLOSED
+
+    def test_create_deployment_config(self):
+        core.async_mutations = False
+        mutation = """
+            mutation createDeploymentConfiguration($input: CreateDeploymentConfigurationMutationInput!) {
+                createDeploymentConfiguration(input: $input) {
+                    clientMutationId
+                    internalId
+                }
+            }
+        """
+
+        variables = {
+            "input": {
+                "clientMutationId": "ca18e62f-5f29-4158-bec8-042b9b935727",
+                "clientMutationLabel": "Créer une configuration",
+                "operatingMode": "local_only",
+                "currencyCode": "XAF",
+                "retainedEarningsAccountId": str(self.account.uuid)
+            }
+        }
+
+        schema = graphene.Schema(
+            query=Query,
+            mutation=Mutation,
+        )
+
+        result = schema.execute(
+            mutation,
+            variable_values=variables,
+            context_value=self.context
+        )
+
+        assert result.errors is None
+        config = DeploymentConfiguration.objects.filter(
+            retained_earnings_account=self.account).order_by("-id").first()
+
+        assert config.operating_mode == "local_only"
+
+    def test_create_manual_review(self):
+        core.async_mutations = False
+        transaction2 = Transaction.objects.create()
+        ledger_entry = LedgerEntryMeta(
+            transaction=transaction2,
+            journal=self.sales_journal,
+            accounting_period=self.period,
+            source_event_type="claim_payment",
+            source_event_reference="META-002",
+        )
+        ledger_entry.save(username=self.user.username)
+
+        record = ExternalReplicationRecord(
+            ledger_entry=ledger_entry,
+            target_system="odoo",
+            idempotency_key="abc",
+            status=ExternalReplicationRecord.STATUS_REJECTED,
+            rejection_reason="Bad account"
+        )
+        record.save(username=self.user.username)
+        mutation = """
+            mutation ManualReviewItemMutation($input: ManualReviewItemMutationInput!) {
+                resolveManualReview(input: $input) {
+                    clientMutationId
+                    internalId
+                }
+            }
+        """
+
+        variables = {
+            "input": {
+                "clientMutationId": "cb18e62f-5f29-4158-bec8-042b9b935727",
+                "clientMutationLabel": "Créer une revue manuelle",
+                "replicationRecordId": str(record.id),
+                "resolvedByTransactionId": str(transaction2.uuid),
+                "resolutionNote": "Test"
+            }
+        }
+
+        schema = graphene.Schema(
+            query=Query,
+            mutation=Mutation,
+        )
+
+        result = schema.execute(
+            mutation,
+            variable_values=variables,
+            context_value=self.context
+        )
+
+        assert result.errors is None
+        item = ManualReviewQueueItem.objects.get(replication_record=record.id)
+
+        assert item.resolution_note == "Test"
