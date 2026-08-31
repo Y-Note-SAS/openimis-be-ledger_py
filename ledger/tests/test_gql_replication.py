@@ -449,3 +449,106 @@ class PostingSignalsTest(TestCase):
         item = ManualReviewQueueItem.objects.get(replication_record=record.id)
 
         assert item.resolution_note == "Test"
+
+    @patch("ledger.replication.tasks.get_adapter")
+    def test_timeout_after_max_attempts_marks_unconfirmed(
+        self,
+        mock_get_adapter,
+    ):
+
+        adapter = mock_get_adapter.return_value
+
+        adapter.send.return_value = AdapterResult(
+            status="timeout"
+        )
+
+        record = ExternalReplicationRecord(
+            ledger_entry=self.ledger_entry,
+            target_system="odoo",
+            idempotency_key=f"odoo:{self.ledger_entry.transaction.uuid}",
+            attempt_count=3,
+        )
+        record.save(username=self.user.username)
+
+        replicate_entry(
+            ledger_entry_id=self.ledger_entry.id,
+            target_system="odoo",
+            username=self.user.username,
+        )
+
+        record.refresh_from_db()
+
+        self.assertEqual(
+            record.status,
+            ExternalReplicationRecord.STATUS_UNCONFIRMED,
+        )
+
+        self.assertEqual(
+            record.attempt_count,
+            3,
+        )
+
+        review = ManualReviewQueueItem.objects.filter(
+            replication_record=record,
+            is_deleted=False,
+        ).first()
+
+        self.assertIsNotNone(review)
+
+        self.assertNotEqual(
+            record.status,
+            ExternalReplicationRecord.STATUS_REJECTED,
+        )
+
+    @patch("ledger.replication.tasks.get_adapter")
+    def test_idempotency_prevents_duplicate_external_posting(
+        self,
+        mock_get_adapter,
+    ):
+
+        adapter = mock_get_adapter.return_value
+
+        adapter.send.return_value = AdapterResult(
+            status="success",
+            external_reference="ODOO-123"
+        )
+
+        replicate_entry(
+            ledger_entry_id=self.ledger_entry.id,
+            target_system="odoo",
+            username=self.user.username,
+        )
+
+        replicate_entry(
+            ledger_entry_id=self.ledger_entry.id,
+            target_system="odoo",
+            username=self.user.username,
+        )
+
+        record = ExternalReplicationRecord.objects.get(
+            ledger_entry=self.ledger_entry,
+            target_system="odoo",
+        )
+
+        self.assertEqual(
+            record.status,
+            ExternalReplicationRecord.STATUS_SUCCEEDED,
+        )
+
+        self.assertEqual(
+            adapter.send.call_count,
+            1,
+        )
+
+        self.assertEqual(
+            ExternalReplicationRecord.objects.filter(
+                ledger_entry=self.ledger_entry,
+                target_system="odoo",
+                is_deleted=False,
+            ).count(),
+            1,
+        )
+        self.assertEqual(
+            record.idempotency_key,
+            f"odoo:{self.ledger_entry.transaction.uuid}",
+        )
