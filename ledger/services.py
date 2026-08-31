@@ -437,6 +437,10 @@ class PeriodService:
                     "Cannot perfom this action without user specified"
                 )
             core_user = User.objects.filter(id=user.id).first()
+            if not core_user:
+                raise ValidationError(
+                    "No core user found for the specified user"
+                )
             period = AccountingPeriod(
                 start_date=start_date,
                 end_date=end_date,
@@ -476,6 +480,10 @@ class PeriodService:
                     "Cannot perform this action without user provided"
                 )
             core_user = User.objects.filter(id=user.id).first()
+            if not core_user:
+                raise ValidationError(
+                    "No core user found for the specified user"
+                )
             period.audit_user_id = core_user.i_user.id
 
             period.save(
@@ -609,6 +617,10 @@ class PeriodService:
                     "Cannot perform this action without user provided"
                 )
             core_user = User.objects.filter(id=user.id).first()
+            if not core_user:
+                raise ValidationError(
+                    "No core user found for the specified user"
+                )
             period.audit_user_id_closed = core_user.i_user.id
             period.closed_by = core_user.i_user.id
 
@@ -646,12 +658,15 @@ class PeriodService:
             period.status = AccountingPeriod.STATUS_OPEN
             period.locked_at = None
 
-            if user:
-                if not user:
-                    raise ValidationError(
-                        "Cannot perform this action without user provided"
-                    )
+            if not user:
+                raise ValidationError(
+                    "Cannot perform this action without user provided"
+                )
             core_user = User.objects.filter(id=user.id).first()
+            if not core_user:
+                raise ValidationError(
+                    "No core user found for the specified user"
+                )
             period.audit_user_id = core_user.i_user.id
 
             period.save(
