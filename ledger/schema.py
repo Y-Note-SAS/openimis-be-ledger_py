@@ -11,6 +11,7 @@ from .gql_queries import (
     PartyLedgerBalanceGQLType,
     FunderActivityReportGQLType,
     LedgerEntryGQLType,
+    LedgerJournalGQLType,
     AnalyticValueGQLType,
     AccountingPeriodGQLType,
     ManualReviewQueueItemGQLType,
@@ -73,6 +74,10 @@ class Query(graphene.ObjectType):
         LedgerEntryGQLType,
         party=graphene.UUID(),
         funder=graphene.UUID(),
+    )
+
+    ledger_journal = OrderedDjangoFilterConnectionField(
+        LedgerJournalGQLType
     )
 
     funder_activity_report = graphene.Field(
