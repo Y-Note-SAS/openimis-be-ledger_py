@@ -24,7 +24,9 @@ from .gql_mutations import (
     CloseAccountingPeriodMutation,
     ReopenAccountingPeriodMutation,
     CreateAccountMutation,
-    ManualReviewItemMutation
+    ManualReviewItemMutation,
+    CreateJournalMutation,
+    CreateSequenceMutation
 )
 from .models import (
     LegTag,
@@ -195,3 +197,5 @@ class Mutation(graphene.ObjectType):
     reopen_accounting_period = ReopenAccountingPeriodMutation.Field()
     create_account = CreateAccountMutation.Field()
     resolve_manual_review = ManualReviewItemMutation.Field()
+    create_journal = CreateJournalMutation.Field()
+    create_sequence = CreateSequenceMutation.Field()

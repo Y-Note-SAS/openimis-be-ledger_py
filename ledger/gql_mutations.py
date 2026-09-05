@@ -9,7 +9,9 @@ from .models import (
     DeploymentConfiguration,
     AccountingPeriod,
     ManualReviewQueueItem,
-    ExternalReplicationRecord
+    ExternalReplicationRecord,
+    LedgerJournal,
+    Sequence
 )
 from .services import PeriodService
 from datetime import datetime, timezone
@@ -43,6 +45,34 @@ class CreateAccountInputType(OpenIMISMutation.Input):
     is_bank_account = graphene.Boolean(required=True)
 
     currencies = graphene.JSONString(required=False)
+
+
+class CreateSequenceInputType(OpenIMISMutation.Input):
+
+    name = graphene.String(required=True)
+
+    code = graphene.String(required=True)
+
+    prefix = graphene.String(required=True)
+
+    suffix = graphene.String(required=True)
+
+    padding = graphene.Int(required=True)
+
+
+class CreateJournalInputType(OpenIMISMutation.Input):
+
+    name = graphene.String(required=True)
+
+    code = graphene.String(required=True)
+
+    type = graphene.String(required=True)
+
+    sequence_id = graphene.UUID(required=True)
+
+    default_credit_account_id = graphene.UUID(required=True)
+
+    default_debit_account_id = graphene.UUID(required=True)
 
 
 class ManualReviewMutationInputType(OpenIMISMutation.Input):
@@ -156,6 +186,117 @@ class CreateDeploymentConfigurationMutation(OpenIMISMutation):
             retained_earnings_account=account
         )
         deployment_config.save(username=user.username)
+
+
+class CreateJournalMutation(OpenIMISMutation):
+
+    _mutation_module = "ledger"
+
+    _mutation_class = "CreateJournalMutation"
+    _model = Account
+
+    class Input(CreateJournalInputType):
+        pass
+
+    @classmethod
+    def async_mutate(cls, user, **data):
+
+        if type(user) is AnonymousUser or not user:
+            raise ValidationError(
+                _("mutation.authentication_required")
+            )
+        if not user.has_perms(LedgerConfig.gql_mutation_ledger_admin_perms):
+            raise PermissionDenied(_("unauthorized"))
+
+        name = data.get("name", None)
+        code = data.get("code", None)
+        journal_type = data.get("type", None)
+        sequence_id = data.get("sequence_id", None)
+        default_credit_account_id = data.get("default_credit_account_id", None)
+        default_debit_account_id = data.get("default_debit_account_id", None)
+
+        if "client_mutation_id" in data:
+            data.pop("client_mutation_id")
+        if "client_mutation_label" in data:
+            data.pop("client_mutation_label")
+
+        sequence = None
+        if sequence_id:
+            try:
+                sequence = Sequence.objects.get(uuid=sequence_id)
+            except Sequence.DoesNotExist:
+                raise ValidationError(
+                    _("The specified sequence was not found")
+                )
+
+        default_credit_account = None
+        if default_credit_account_id:
+            try:
+                default_credit_account = Account.objects.get(uuid=default_credit_account_id)
+            except Account.DoesNotExist:
+                raise ValidationError(
+                    _("The specified default credit account was not found")
+                )
+
+        default_debit_account = None
+        if default_debit_account_id:
+            try:
+                default_debit_account = Account.objects.get(uuid=default_debit_account_id)
+            except Account.DoesNotExist:
+                raise ValidationError(
+                    _("The specified default debit account was not found")
+                )
+
+        journal = LedgerJournal(
+            code=code,
+            name=name,
+            type=journal_type,
+            default_credit_account_id=default_credit_account,
+            default_debit_account_id=default_debit_account,
+            sequence_id=sequence
+        )
+        journal.save(username=user.username)
+
+
+class CreateSequenceMutation(OpenIMISMutation):
+
+    _mutation_module = "ledger"
+
+    _mutation_class = "CreateSequenceMutation"
+    _model = Account
+
+    class Input(CreateSequenceInputType):
+        pass
+
+    @classmethod
+    def async_mutate(cls, user, **data):
+
+        if type(user) is AnonymousUser or not user:
+            raise ValidationError(
+                _("mutation.authentication_required")
+            )
+        if not user.has_perms(LedgerConfig.gql_mutation_ledger_admin_perms):
+            raise PermissionDenied(_("unauthorized"))
+
+        name = data.get("name", None)
+        code = data.get("code", None)
+        prefix = data.get("prefix", None)
+        suffix = data.get("suffix", None)
+        padding = data.get("padding", None)
+
+        if "client_mutation_id" in data:
+            data.pop("client_mutation_id")
+        if "client_mutation_label" in data:
+            data.pop("client_mutation_label")
+
+        sequence = Sequence(
+            code=code,
+            name=name,
+            prefix=prefix,
+            suffix=suffix,
+            padding=padding
+        )
+        sequence.save(username=user.username)
 
 
 class CreateAccountMutation(OpenIMISMutation):
