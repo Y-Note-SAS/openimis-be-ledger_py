@@ -12,7 +12,6 @@ from ledger.models import (
     AnalyticValue,
     Account,
     LedgerJournal,
-    Sequence,
     DeploymentConfiguration
 )
 
@@ -39,14 +38,6 @@ class LedgerEntriesFilterTest(TestCase):
             username=self.user.username,
         )
 
-        self.sequence = Sequence(
-            code="GL",
-            name="GL",
-        )
-        self.sequence.save(
-            username=self.user.username,
-        )
-
         self.account_1 = Account.objects.create(
             code="1001",
             full_code="1001",
@@ -62,7 +53,6 @@ class LedgerEntriesFilterTest(TestCase):
         self.journal = LedgerJournal(
             code="TEST",
             name="TEST",
-            sequence_id=self.sequence,
             default_debit_account_id=self.account_1,
             default_credit_account_id=self.account_2,
         )

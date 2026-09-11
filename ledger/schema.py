@@ -16,7 +16,8 @@ from .gql_queries import (
     AccountingPeriodGQLType,
     ManualReviewQueueItemGQLType,
     DeploymentConfigurationGQLType,
-    AccountGQLType
+    AccountGQLType,
+    JournalTypeGQLType
 )
 from .gql_mutations import (
     CreateDeploymentConfigurationMutation,
@@ -27,7 +28,7 @@ from .gql_mutations import (
     CreateAccountMutation,
     ManualReviewItemMutation,
     CreateJournalMutation,
-    CreateSequenceMutation
+    CreateJournalTypeMutation
 )
 from .models import (
     LegTag,
@@ -78,6 +79,10 @@ class Query(graphene.ObjectType):
 
     ledger_journal = OrderedDjangoFilterConnectionField(
         LedgerJournalGQLType
+    )
+
+    journal_types = OrderedDjangoFilterConnectionField(
+        JournalTypeGQLType
     )
 
     funder_activity_report = graphene.Field(
@@ -203,4 +208,4 @@ class Mutation(graphene.ObjectType):
     create_account = CreateAccountMutation.Field()
     resolve_manual_review = ManualReviewItemMutation.Field()
     create_journal = CreateJournalMutation.Field()
-    create_sequence = CreateSequenceMutation.Field()
+    create_journal_type = CreateJournalTypeMutation.Field()

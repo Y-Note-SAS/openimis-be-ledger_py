@@ -10,8 +10,8 @@ from .models import (
     AccountingPeriod,
     ManualReviewQueueItem,
     ExternalReplicationRecord,
-    LedgerJournal,
-    Sequence
+    JournalTypes,
+    LedgerJournal
 )
 from .services import PeriodService
 from datetime import datetime, timezone
@@ -30,6 +30,14 @@ class CreateDeploymentConfigurationInputType(OpenIMISMutation.Input):
     retained_earnings_account_id = graphene.UUID(required=True)
 
 
+class CreateJournalTypeInputType(OpenIMISMutation.Input):
+
+    code = graphene.String(required=True)
+
+    type = graphene.String(required=True)
+
+    alt_language = graphene.String(required=True)
+
 class CreateAccountInputType(OpenIMISMutation.Input):
 
     name = graphene.String(required=True)
@@ -47,28 +55,13 @@ class CreateAccountInputType(OpenIMISMutation.Input):
     currencies = graphene.JSONString(required=False)
 
 
-class CreateSequenceInputType(OpenIMISMutation.Input):
-
-    name = graphene.String(required=True)
-
-    code = graphene.String(required=True)
-
-    prefix = graphene.String(required=True)
-
-    suffix = graphene.String(required=True)
-
-    padding = graphene.Int(required=True)
-
-
 class CreateJournalInputType(OpenIMISMutation.Input):
 
     name = graphene.String(required=True)
 
     code = graphene.String(required=True)
 
-    type = graphene.String(required=True)
-
-    sequence_id = graphene.UUID(required=True)
+    type = graphene.UUID(required=True)
 
     default_credit_account_id = graphene.UUID(required=True)
 
@@ -152,7 +145,7 @@ class CreateDeploymentConfigurationMutation(OpenIMISMutation):
             account = Account.objects.get(uuid=data["retained_earnings_account_id"])
         except Account.DoesNotExist:
             raise ValidationError(
-                _("The specified account was not found")
+                _("The specified retained earnings account account was not found")
             )
 
         if account.type in [AccountType.expense, AccountType.income]:
@@ -210,8 +203,7 @@ class CreateJournalMutation(OpenIMISMutation):
 
         name = data.get("name", None)
         code = data.get("code", None)
-        journal_type = data.get("type", None)
-        sequence_id = data.get("sequence_id", None)
+        journal_id = data.get("type", None)
         default_credit_account_id = data.get("default_credit_account_id", None)
         default_debit_account_id = data.get("default_debit_account_id", None)
 
@@ -220,13 +212,13 @@ class CreateJournalMutation(OpenIMISMutation):
         if "client_mutation_label" in data:
             data.pop("client_mutation_label")
 
-        sequence = None
-        if sequence_id:
+        journal_type = None
+        if journal_id:
             try:
-                sequence = Sequence.objects.get(uuid=sequence_id)
-            except Sequence.DoesNotExist:
+                journal_type = JournalTypes.objects.get(id=journal_id)
+            except JournalTypes.DoesNotExist:
                 raise ValidationError(
-                    _("The specified sequence was not found")
+                    _("The specified journal type was not found")
                 )
 
         default_credit_account = None
@@ -252,20 +244,19 @@ class CreateJournalMutation(OpenIMISMutation):
             name=name,
             type=journal_type,
             default_credit_account_id=default_credit_account,
-            default_debit_account_id=default_debit_account,
-            sequence_id=sequence
+            default_debit_account_id=default_debit_account
         )
         journal.save(username=user.username)
 
 
-class CreateSequenceMutation(OpenIMISMutation):
+class CreateJournalTypeMutation(OpenIMISMutation):
 
     _mutation_module = "ledger"
 
-    _mutation_class = "CreateSequenceMutation"
-    _model = Account
+    _mutation_class = "CreateJournalTypeMutation"
+    _model = JournalTypes
 
-    class Input(CreateSequenceInputType):
+    class Input(CreateJournalTypeInputType):
         pass
 
     @classmethod
@@ -278,23 +269,19 @@ class CreateSequenceMutation(OpenIMISMutation):
         if not user.has_perms(LedgerConfig.gql_mutation_ledger_admin_perms):
             raise PermissionDenied(_("unauthorized"))
 
-        name = data.get("name", None)
         code = data.get("code", None)
-        prefix = data.get("prefix", None)
-        suffix = data.get("suffix", None)
-        padding = data.get("padding", None)
+        j_type = data.get("type", None)
+        alt_language = data.get("alt_language", None)
 
         if "client_mutation_id" in data:
             data.pop("client_mutation_id")
         if "client_mutation_label" in data:
             data.pop("client_mutation_label")
 
-        sequence = Sequence(
+        sequence = JournalTypes(
             code=code,
-            name=name,
-            prefix=prefix,
-            suffix=suffix,
-            padding=padding
+            type=j_type,
+            alt_language=alt_language
         )
         sequence.save(username=user.username)
 

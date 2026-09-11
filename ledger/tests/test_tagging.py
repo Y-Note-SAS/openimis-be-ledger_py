@@ -6,7 +6,6 @@ from ledger.models import (
     AnalyticValue,
     LegTag,
     LedgerJournal,
-    Sequence,
     Account,
     DeploymentConfiguration,
     AccountingPeriod
@@ -32,14 +31,6 @@ class PostingTaggingTest(TestCase):
         }
         self.claim = create_test_claim(custom_props=custom_props)
 
-        self.sequence = Sequence(
-            code="GL",
-            name="GL",
-        )
-        self.sequence.save(
-            username=self.user.username,
-        )
-
         self.account = Account.objects.create(
             code="1001",
             full_code="1001",
@@ -55,7 +46,6 @@ class PostingTaggingTest(TestCase):
         self.claims_journal = LedgerJournal(
             code="Claims",
             name="Claims",
-            sequence_id=self.sequence,
             default_credit_account_id=self.account,
             default_debit_account_id=self.exp_account,
         )

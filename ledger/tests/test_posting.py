@@ -12,7 +12,6 @@ from ledger.models import (
     Account,
     LedgerEntryMeta,
     LedgerJournal,
-    Sequence,
     DeploymentConfiguration,
     UnmappedFinancialEvent,
     AnalyticAxis,
@@ -39,7 +38,20 @@ def create_accounting_periods(user):
     """Crée 50 périodes comptables de janvier 2020 à février 2024."""
     current = date(2020, 1, 1)
     end_loop = date(2024, 2, 1)  # 50 mois
-
+INSERT INTO "tblInvoice" ("UUID", "isDeleted", "version", "DateValidFrom", "Code", "AmountNet", "AmountTotal", "Status", "CurrencyTpCode", "CurrencyCode", "UserCreatedUUID", "UserUpdatedUUID") VALUES (
+    gen_random_uuid(),
+    'f',
+    1,
+    '2026-01-01',
+    'Inv-001',
+    3000,
+    3000,
+    1,
+    'XAF',
+    'XAF',
+    '12f17e33-4ad9-49ca-987a-898419144ae6',
+    '12f17e33-4ad9-49ca-987a-898419144ae6'
+);
     while current < end_loop:
         # Dernier jour du mois
         last_day = monthrange(current.year, current.month)[1]
@@ -109,12 +121,6 @@ class PostingSignalsTest(TestCase):
             name="Test Account Expense",
         )
 
-        cls.sequence = Sequence(
-            code="GLA",
-            name="General Ledger A"
-        )
-        cls.sequence.save(username=cls.user.username)
-
         cls.period = AccountingPeriod(
             name="2026-01",
             status=AccountingPeriod.STATUS_OPEN,
@@ -124,7 +130,6 @@ class PostingSignalsTest(TestCase):
         cls.claims_journal = LedgerJournal(
             code="Claims",
             name="Claims",
-            sequence_id=cls.sequence,
             default_credit_account_id=cls.account,
             default_debit_account_id=cls.exp_account,
         )
@@ -133,7 +138,6 @@ class PostingSignalsTest(TestCase):
         cls.sales_journal = LedgerJournal(
             code="Sales",
             name="Sales",
-            sequence_id=cls.sequence,
             default_credit_account_id=cls.account,
             default_debit_account_id=cls.exp_account,
         )
@@ -142,7 +146,6 @@ class PostingSignalsTest(TestCase):
         cls.payroll_journal = LedgerJournal(
             code="Payroll",
             name="Payroll",
-            sequence_id=cls.sequence,
             default_credit_account_id=cls.account,
             default_debit_account_id=cls.exp_account,
         )
@@ -151,7 +154,6 @@ class PostingSignalsTest(TestCase):
         cls.bank_journal = LedgerJournal(
             code="Bank",
             name="Bank",
-            sequence_id=cls.sequence,
             default_credit_account_id=cls.account,
             default_debit_account_id=cls.exp_account,
         )

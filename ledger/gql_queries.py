@@ -8,7 +8,8 @@ from .models import (
     AnalyticValue,
     ManualReviewQueueItem,
     ExternalReplicationRecord,
-    DeploymentConfiguration
+    DeploymentConfiguration,
+    JournalTypes
 )
 from hordak.models import Account
 from core import prefix_filterset, ExtendedConnection
@@ -200,5 +201,20 @@ class AccountGQLType(DjangoObjectType):
             "full_code": ["exact"],
             "type": ["exact"],
             "is_bank_account": ["exact"]
+        }
+        connection_class = ExtendedConnection
+
+class JournalTypeGQLType(DjangoObjectType):
+
+    client_mutation_id = graphene.String()
+
+    class Meta:
+        model = JournalTypes
+        interfaces = (graphene.relay.Node,)
+        filter_fields = {
+            "id": ["exact"],
+            "code": ["exact"],
+            "type": ["exact"],
+            "alt_language": ["exact"]
         }
         connection_class = ExtendedConnection
