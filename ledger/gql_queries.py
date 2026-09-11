@@ -9,7 +9,8 @@ from .models import (
     ManualReviewQueueItem,
     ExternalReplicationRecord,
     DeploymentConfiguration,
-    JournalTypes
+    JournalTypes,
+    AnalyticAxis
 )
 from decimal import Decimal
 from hordak.models import Account, Leg, Transaction
@@ -33,6 +34,22 @@ class AccountingPeriodGQLType(DjangoObjectType):
         connection_class = ExtendedConnection
 
 
+class JournalTypeGQLType(DjangoObjectType):
+
+    client_mutation_id = graphene.String()
+
+    class Meta:
+        model = JournalTypes
+        interfaces = (graphene.relay.Node,)
+        filter_fields = {
+            "id": ["exact"],
+            "code": ["exact"],
+            "type": ["exact"],
+            "alt_language": ["exact"]
+        }
+        connection_class = ExtendedConnection
+
+
 class LedgerJournalGQLType(DjangoObjectType):
 
     client_mutation_id = graphene.String()
@@ -43,7 +60,10 @@ class LedgerJournalGQLType(DjangoObjectType):
         filter_fields = {
             "name": ["exact"],
             "code": ["exact"],
-            "type": ["exact"]
+            **prefix_filterset(
+                "type__",
+                JournalTypeGQLType._meta.filter_fields
+            ),
         }
         connection_class = ExtendedConnection
 
@@ -76,6 +96,22 @@ class LegGQLType(DjangoObjectType):
 
     def resolve_credit(self, info):
         return abs(self.amount.amount) if self.is_credit() else Decimal(0)
+
+
+class AnalyticValueGQLType(DjangoObjectType):
+
+    client_mutation_id = graphene.String()
+
+    class Meta:
+        model = AnalyticValue
+        interfaces = (graphene.relay.Node,)
+        filter_fields = {
+            "funder_code": ["exact"],
+            "party_type": ["exact"],
+            "external_reference": ["exact"],
+            "display_name": ["exact"],
+        }
+        connection_class = ExtendedConnection
 
 
 class LedgerEntryGQLType(DjangoObjectType):
@@ -115,12 +151,11 @@ class LedgerEntryGQLType(DjangoObjectType):
             return transaction.get_balance()
 
         def _get_transaction(self):
-            return  LedgerEntryMeta.objects.first().transaction
-            # ledger_entry = LedgerEntryMeta.objects.get(
-            #     id=self.id
-            # )
+            ledger_entry = LedgerEntryMeta.objects.get(
+                id=self.id
+            )
 
-            # return ledger_entry.transaction
+            return ledger_entry.transaction
         model = LedgerEntryMeta
         interfaces = (graphene.relay.Node,)
         fields = (
@@ -155,22 +190,6 @@ class LedgerEntryGQLType(DjangoObjectType):
                 "accounting_period__",
                 AccountingPeriodGQLType._meta.filter_fields
             ),
-        }
-        connection_class = ExtendedConnection
-
-
-class AnalyticValueGQLType(DjangoObjectType):
-
-    client_mutation_id = graphene.String()
-
-    class Meta:
-        model = AnalyticValue
-        interfaces = (graphene.relay.Node,)
-        filter_fields = {
-            "funder_code": ["exact"],
-            "party_type": ["exact"],
-            "external_reference": ["exact"],
-            "display_name": ["exact"],
         }
         connection_class = ExtendedConnection
 
@@ -274,20 +293,5 @@ class AccountGQLType(DjangoObjectType):
             "full_code": ["exact"],
             "type": ["exact"],
             "is_bank_account": ["exact"]
-        }
-        connection_class = ExtendedConnection
-
-class JournalTypeGQLType(DjangoObjectType):
-
-    client_mutation_id = graphene.String()
-
-    class Meta:
-        model = JournalTypes
-        interfaces = (graphene.relay.Node,)
-        filter_fields = {
-            "id": ["exact"],
-            "code": ["exact"],
-            "type": ["exact"],
-            "alt_language": ["exact"]
         }
         connection_class = ExtendedConnection
