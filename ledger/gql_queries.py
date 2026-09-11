@@ -11,7 +11,8 @@ from .models import (
     DeploymentConfiguration,
     JournalTypes
 )
-from hordak.models import Account
+from decimal import Decimal
+from hordak.models import Account, Leg, Transaction
 from core import prefix_filterset, ExtendedConnection
 
 
@@ -47,13 +48,85 @@ class LedgerJournalGQLType(DjangoObjectType):
         connection_class = ExtendedConnection
 
 
+class TransactionGQLType(DjangoObjectType):
+    balance = graphene.String()
+
+    class Meta:
+        model = Transaction
+        interfaces = (graphene.relay.Node,)
+        fields = ("id", "uuid", "date", "description", "legs", "ledger_meta")
+        connection_class = ExtendedConnection
+
+    def resolve_balance(self, info):
+        return str(self.get_balance())
+
+
+class LegGQLType(DjangoObjectType):
+    debit = graphene.Decimal()
+    credit = graphene.Decimal()
+
+    class Meta:
+        model = Leg
+        interfaces = (graphene.relay.Node,)
+        fields = ("id", "transaction", "account", "amount", "description")
+        connection_class = ExtendedConnection
+
+    def resolve_debit(self, info):
+        return abs(self.amount.amount) if self.is_debit() else Decimal(0)
+
+    def resolve_credit(self, info):
+        return abs(self.amount.amount) if self.is_credit() else Decimal(0)
+
+
 class LedgerEntryGQLType(DjangoObjectType):
 
     client_mutation_id = graphene.String()
 
     class Meta:
+        def resolve_debit(self, info):
+            transaction = self._get_transaction()
+
+            debit = Decimal("0")
+
+            for leg in transaction.legs.all():
+                amount = leg.amount.amount
+
+                if amount < 0:
+                    debit += abs(amount)
+
+            return debit
+
+        def resolve_credit(self, info):
+            transaction = self._get_transaction()
+
+            credit = Decimal("0")
+
+            for leg in transaction.legs.all():
+                amount = leg.amount.amount
+
+                if amount > 0:
+                    credit += amount
+
+            return credit
+
+        def resolve_balance(self, info):
+            transaction = self._get_transaction()
+
+            return transaction.get_balance()
+
+        def _get_transaction(self):
+            return  LedgerEntryMeta.objects.first().transaction
+            # ledger_entry = LedgerEntryMeta.objects.get(
+            #     id=self.id
+            # )
+
+            # return ledger_entry.transaction
         model = LedgerEntryMeta
         interfaces = (graphene.relay.Node,)
+        fields = (
+            "id",
+            "transaction", "source_event_type", "source_event_reference",
+                  "posted_at", "journal", "accounting_period")
         filter_fields = {
             "source_event_type": ["exact"],
             "source_event_reference": ["exact"],
