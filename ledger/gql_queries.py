@@ -10,7 +10,8 @@ from .models import (
     ExternalReplicationRecord,
     DeploymentConfiguration,
     JournalTypes,
-    AnalyticAxis
+    AnalyticAxis,
+    LegTag
 )
 from decimal import Decimal
 from hordak.models import Account, Leg, Transaction
@@ -30,6 +31,19 @@ class AccountingPeriodGQLType(DjangoObjectType):
             "name": ["exact"],
             "code": ["exact"],
             "status": ["exact"],
+        }
+        connection_class = ExtendedConnection
+
+class AnaliticAxisGQLType(DjangoObjectType):
+
+    client_mutation_id = graphene.String()
+
+    class Meta:
+        model = AnalyticAxis
+        interfaces = (graphene.relay.Node,)
+        filter_fields = {
+            "name": ["exact"],
+            "code": ["exact"],
         }
         connection_class = ExtendedConnection
 
@@ -88,7 +102,7 @@ class LegGQLType(DjangoObjectType):
     class Meta:
         model = Leg
         interfaces = (graphene.relay.Node,)
-        fields = ("id", "transaction", "account", "amount", "description")
+        fields = ("id", "transaction", "account", "amount", "description", "tags")
         connection_class = ExtendedConnection
 
     def resolve_debit(self, info):
@@ -114,53 +128,47 @@ class AnalyticValueGQLType(DjangoObjectType):
         connection_class = ExtendedConnection
 
 
+class LegTagGQLType(DjangoObjectType):
+    class Meta:
+        model = LegTag
+        interfaces = (graphene.relay.Node,)
+        fields = ("id", "leg", "analytic_value", "axis")
+        connection_class = ExtendedConnection
+
+
 class LedgerEntryGQLType(DjangoObjectType):
 
     client_mutation_id = graphene.String()
+    party = graphene.Field(AnalyticValueGQLType)
+    funder = graphene.Field(AnalyticValueGQLType)
+    account = graphene.String()
+
+    def resolve_party(self, info):
+        current_tag = None
+        for leg in self.transaction.legs.all():
+            for tag in leg.analytic_tags.all():
+                if tag.axis.code == AnalyticAxis.PARTY:
+                    current_tag = tag
+                    return current_tag.analytic_value
+
+        return None
+
+    def resolve_funder(self, info):
+        current_tag = None
+        for leg in self.transaction.legs.all():
+            for tag in leg.analytic_tags.all():
+                if tag.axis.code == AnalyticAxis.FUNDER:
+                    current_tag = tag
+                    return current_tag.analytic_value
+
+        return None
 
     class Meta:
-        def resolve_debit(self, info):
-            transaction = self._get_transaction()
-
-            debit = Decimal("0")
-
-            for leg in transaction.legs.all():
-                amount = leg.amount.amount
-
-                if amount < 0:
-                    debit += abs(amount)
-
-            return debit
-
-        def resolve_credit(self, info):
-            transaction = self._get_transaction()
-
-            credit = Decimal("0")
-
-            for leg in transaction.legs.all():
-                amount = leg.amount.amount
-
-                if amount > 0:
-                    credit += amount
-
-            return credit
-
-        def resolve_balance(self, info):
-            transaction = self._get_transaction()
-
-            return transaction.get_balance()
-
-        def _get_transaction(self):
-            ledger_entry = LedgerEntryMeta.objects.get(
-                id=self.id
-            )
-
-            return ledger_entry.transaction
         model = LedgerEntryMeta
         interfaces = (graphene.relay.Node,)
         fields = (
             "id",
-            "transaction", "source_event_type", "source_event_reference",
+            "transaction", "party", "source_event_type", "source_event_reference",
                   "posted_at", "journal", "accounting_period")
         filter_fields = {
             "source_event_type": ["exact"],

@@ -55,6 +55,11 @@ def create_journal_types(apps, schema_editor):
             "type": "Opening/Closing journal",
             "alt_language": "Journal de situation ouverture / clôture",
         },
+        {
+            "code": "treasury",
+            "type": "Treasury journal",
+            "alt_language": "Journal de trésorerie",
+        },
     ]
 
     for item in journal_types:
