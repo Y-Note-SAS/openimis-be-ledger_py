@@ -118,6 +118,7 @@ class AccountingPeriod(core_models.HistoryModel):
         managed = True
         db_table = 'tblAccountingPeriod'
 
+
 class JournalTypes(core_models.HistoryModel):
     """This is journal class with all its fields"""
 
@@ -126,9 +127,11 @@ class JournalTypes(core_models.HistoryModel):
     alt_language = models.CharField(
         db_column='AltLanguage', max_length=50, blank=True, null=True, unique=True)
     code = models.CharField(db_column='Code', max_length=20, blank=True, null=True)
+
     class Meta:
         managed = True
         db_table = 'tblJournalTypes'
+
 
 class LedgerJournal(core_models.HistoryModel):
     """

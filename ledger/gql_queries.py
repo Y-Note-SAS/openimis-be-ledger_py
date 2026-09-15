@@ -34,6 +34,7 @@ class AccountingPeriodGQLType(DjangoObjectType):
         }
         connection_class = ExtendedConnection
 
+
 class AnaliticAxisGQLType(DjangoObjectType):
 
     client_mutation_id = graphene.String()
@@ -167,8 +168,7 @@ class LedgerEntryGQLType(DjangoObjectType):
         model = LedgerEntryMeta
         interfaces = (graphene.relay.Node,)
         fields = (
-            "id",
-            "transaction", "party", "source_event_type", "source_event_reference",
+            "id", "transaction", "party", "source_event_type", "source_event_reference",
                   "posted_at", "journal", "accounting_period")
         filter_fields = {
             "source_event_type": ["exact"],

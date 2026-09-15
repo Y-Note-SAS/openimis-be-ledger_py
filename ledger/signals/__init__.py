@@ -13,10 +13,11 @@ from core.signals import bind_service_signal
 from ledger.services import LedgerEntryService
 from core.service_signals import ServiceSignalBindType
 from claim.models import Claim
-from policyholder.models import PolicyHolder
+from payer.models import Payer
 from django.db.models import Q
 from datetime import datetime as py_datetime
 from insuree.models import Insuree
+from invoice.models import Invoice
 logger = logging.getLogger(__name__)
 
 
@@ -101,12 +102,17 @@ def resolve_mapping(event_type, payload):
         "invoice_issued": {
             "journal": "sales",
         },
+        "invoice_paid": {
+            "journal": "treasury",
+        },
         "payment_point_reconciliation": {
-            "journal": "bank",
-        }
+            "journal": "treasury",
+        },
+        "payroll_disbursement": {
+            "journal": "treasury",
+        },
     }
 
-    print("Le code a rechercher ", mapping.get(event_type)["journal"])
     journal = LedgerJournal.objects.filter(
         type__code=mapping.get(event_type)["journal"]
     ).first()
@@ -125,10 +131,12 @@ def on_claim_valuated(
     sender,
     **kwargs,
 ):
-    claim = kwargs.get('result', {})
+    claim, errors = kwargs['result']
     if not isinstance(claim, Claim):
         logger.info("set_claim_processed_or_valuated method has not returned a claim instance")
         return None
+    if errors:
+        logger.info("Cannot process due to errors on claim processing")
 
     user = kwargs.get('data', ([], None))[0][1]
     if claim.status != Claim.STATUS_VALUATED:
@@ -137,7 +145,7 @@ def on_claim_valuated(
     logger.info("Claim valuated received")
 
     amount = Decimal(str(
-        claim.valuated or claim.approved or 0
+        claim.valuated or claim.approved or claim.claimed or 0
     ))
 
     if amount == Decimal("0"):
@@ -164,7 +172,7 @@ def on_claim_valuated(
         )
 
     journal = LedgerJournal.objects.filter(
-        code=mapping["journal"]
+        id=mapping["journal"]
     ).first()
     if not journal:
         logger.info("Skipped journal not found on claim valuation")
@@ -193,6 +201,26 @@ def on_claim_valuated(
         claim.health_facility.uuid,
         AnalyticValue.PARTY_HEALTH_FACILITY,
     )
+    if not party_tag:
+        logger.info("party %s does not exist, we create it", claim.health_facility.uuid)
+        axis = AnalyticAxis.objects.filter(code=AnalyticAxis.PARTY).first()
+        if not axis:
+            axis = AnalyticAxis(
+                code=AnalyticAxis.PARTY,
+                name="Party",
+            )
+            axis.save(username=user.username)
+
+        analytic_value = AnalyticValue(
+            axis=axis,
+            party_type=AnalyticValue.PARTY_HEALTH_FACILITY,
+            external_reference=claim.health_facility.code,
+            display_name=str(claim.health_facility.name),
+        )
+        analytic_value.save(
+            username=user.username
+        )
+        party_tag = analytic_value
 
     resolved_tags = []
 
@@ -200,14 +228,36 @@ def on_claim_valuated(
         resolved_tags.append(party_tag)
 
     today = py_datetime.now()
-    policy_holder = PolicyHolder.objects.filter(
-        is_deleted=False
+    payer = Payer.objects.filter(
+        location_id=claim.health_facility.location.id
     ).filter(
-        Q(date_valid_to__isnull=True) | Q(date_valid_to__date__gte=today.date())
+        Q(validity_to__isnull=True) | Q(validity_to__date__gte=today.date())
     ).first()
 
-    if policy_holder:
-        funder_tag = resolve_funder_tag(policy_holder.code)
+    if payer:
+        funder_tag = resolve_funder_tag(payer.uuid)
+        if not funder_tag:
+            logger.info("party %s does not exist, we create it", payer.name)
+            axis = AnalyticAxis.objects.filter(code=AnalyticAxis.FUNDER).first()
+            if not axis:
+                axis = AnalyticAxis(
+                    code=AnalyticAxis.FUNDER,
+                    name="Funder",
+                )
+                axis.save(username=user.username)
+
+            analytic_value = AnalyticValue(
+                axis=axis,
+                funder_code=payer.uuid,
+                party_type=AnalyticValue.PARTY_PAYMENT_POINT_MANAGER,
+                external_reference=payer.uuid,
+                display_name=str(payer.name),
+            )
+            analytic_value.save(
+                username=user.username
+            )
+            funder_tag = analytic_value
+
         if funder_tag:
             resolved_tags.append(funder_tag)
 
@@ -250,20 +300,12 @@ def on_invoice_issued(
     result,
     **kwargs
 ):
-    print("result inv. ", result)
-    print("kwargs ", kwargs)
     invoice = kwargs['data'][1]['result']
-    # invoice = result["data"]
     invoice_code = invoice['invoice_data']['code']
-    print("invoice_code ", invoice_code)
     amount = invoice['invoice_data_line'][0]['amount_total']
-    print("amount ", amount)
     date_invoice = invoice['invoice_data']['date_invoice']
-    print("date_invoice ", date_invoice)
     insuree_id = invoice['invoice_data']['thirdparty_id']
-    print("insuree_id ", insuree_id)
     user = invoice['user']
-    print("user ", user)
     payload = {
         "invoice_code": invoice_code,
         "insuree_id": insuree_id,
@@ -294,8 +336,6 @@ def on_invoice_issued(
         result,
     )
 
-    # user = kwargs.get("user", None)
-
     if not mapping:
         return raise_unmapped(
             "invoice_issued",
@@ -307,7 +347,6 @@ def on_invoice_issued(
     journal = LedgerJournal.objects.filter(
         id=mapping["journal"]
     ).first()
-    print("journal ", journal)
     if not journal:
         logger.info("Skipped journal not found on invoice issued")
         return None
@@ -315,7 +354,6 @@ def on_invoice_issued(
     period = get_open_period(
         date_invoice
     )
-    print("period is:", period)
 
     if not period:
         return raise_unmapped(
@@ -327,20 +365,24 @@ def on_invoice_issued(
 
     insuree = Insuree.objects.filter(id=insuree_id).first()
     party_tag = None
-    if insuree:
-        party_tag = resolve_party_tag(
-            insuree.chf_id,
-            AnalyticValue.PARTY_INSUREE_FAMILY,
-        )
-        print("party_tag ici ", party_tag)
+    if not insuree:
+        logger.info("Skipped insuree not found on invoice issued")
+        return None
+
+    party_tag = resolve_party_tag(
+        insuree.chf_id,
+        AnalyticValue.PARTY_INSUREE_FAMILY,
+    )
 
     if not party_tag:
-        print(f"party {insuree.chf_id} does not exist, we create it")
-        axis = AnalyticAxis(
-            code=AnalyticAxis.PARTY,
-            name="Party",
-        )
-        axis.save(username=user.username)
+        logger.info("party %s does not exist, we create it", insuree.chf_id)
+        axis = AnalyticAxis.objects.filter(code=AnalyticAxis.PARTY).first()
+        if not axis:
+            axis = AnalyticAxis(
+                code=AnalyticAxis.PARTY,
+                name="Party",
+            )
+            axis.save(username=user.username)
 
         analytic_value = AnalyticValue(
             axis=axis,
@@ -415,7 +457,7 @@ def on_payroll_disbursed(
         )
 
     journal = LedgerJournal.objects.filter(
-        code=mapping["journal"]
+        id=mapping["journal"]
     ).first()
     if not journal:
         logger.info("Skipped journal not found on payroll disbursed")
@@ -472,6 +514,151 @@ def on_payroll_disbursed(
     logger.info("Entry for payroll_disbursed posted with result %s", result)
 
 
+def on_invoice_paid(
+    sender,
+    result,
+    **kwargs
+):
+    data = kwargs["data"]
+
+    first_item = data[0]
+    user = first_item[0]
+
+    input_data = first_item[1]
+
+    payment_invoice = first_item[2]
+
+    status = first_item[3]
+
+    invoice_uuid = first_item[4]
+    amount = input_data["amount_received"]
+    date_payment = input_data["date_payment"]
+    payload = {
+        "payment_invoice": payment_invoice.id,
+        "status": status,
+        "invoice_uuid": invoice_uuid,
+        "paymentInvoiceId": payment_invoice.id,
+        "user": user.username
+    }
+
+    logger.info(
+        "Financial event received",
+        extra={
+            "event_type": "invoice_paid",
+            "invoice_uuid": invoice_uuid
+        }
+    )
+
+    amount = Decimal(
+        str(amount)
+    )
+
+    if amount == 0:
+        logger.info(
+            "Skipped zero for event invoice_paid"
+        )
+        return
+
+    mapping = resolve_mapping(
+        "invoice_paid",
+        result,
+    )
+
+    if not mapping:
+        return raise_unmapped(
+            "invoice_paid",
+            str(payment_invoice.id),
+            payload,
+            user
+        )
+
+    journal = LedgerJournal.objects.filter(
+        id=mapping["journal"]
+    ).first()
+    if not journal:
+        logger.info("Skipped journal not found on invoice paid")
+        return None
+
+    period = get_open_period(
+        date_payment
+    )
+
+    if not period:
+        return raise_unmapped(
+            "invoice_paid",
+            str(payment_invoice.id),
+            payload,
+            user
+        )
+
+    invoice = Invoice.objects.filter(id=invoice_uuid).first()
+    if not invoice:
+        logger.info("Skipped invoice not found on invoice paid")
+        return None
+    insuree = Insuree.objects.filter(id=invoice.thirdparty_id).first()
+    if not insuree:
+        logger.info("Skipped insuree not found on invoice paid")
+        return None
+
+    party_tag = None
+    party_tag = resolve_party_tag(
+        insuree.chf_id,
+        AnalyticValue.PARTY_INSUREE_FAMILY,
+    )
+
+    if not party_tag:
+        logger.info("party %s does not exist, we create it", insuree.chf_id)
+        axis = AnalyticAxis.objects.filter(code=AnalyticAxis.PARTY).first()
+        if not axis:
+            axis = AnalyticAxis(
+                code=AnalyticAxis.PARTY,
+                name="Party",
+            )
+            axis.save(username=user.username)
+
+        analytic_value = AnalyticValue(
+            axis=axis,
+            party_type=AnalyticValue.PARTY_INSUREE_FAMILY,
+            external_reference=insuree.chf_id,
+            display_name=str(insuree.last_name) + " " + str(insuree.other_names),
+        )
+        analytic_value.save(
+            username=user.username
+        )
+        party_tag = analytic_value
+
+    tags = {
+        0: [party_tag],
+        1: [party_tag],
+    }
+
+    result = LedgerEntryService.post(
+        journal=journal,
+        accounting_period=period,
+        source_event_type="payment_point_reconciliation",
+        source_event_reference=str(
+            payment_invoice.id
+        ),
+        user=user,
+        tags=tags,
+        legs=[
+            {
+                "account": mapping["credit_account"],
+                "amount": amount,
+            },
+            {
+                "account": mapping["debit_account"],
+                "amount": -amount,
+            }
+        ],
+    )
+
+    logger.info(
+        "Entry for invoice_paid posted with result %s",
+        result
+    )
+
+
 def on_payment_point_reconciled(
     sender,
     benefits,
@@ -510,7 +697,7 @@ def on_payment_point_reconciled(
         )
 
     journal = LedgerJournal.objects.filter(
-        code=mapping["journal"]
+        id=mapping["journal"]
     ).first()
     if not journal:
         logger.info("Skipped journal not found on payment_point_reconciliation")
@@ -603,5 +790,11 @@ def bind_service_signals():
     bind_service_signal(
         'payroll.payment_point_reconciled',
         on_payment_point_reconciled,
+        bind_type=ServiceSignalBindType.AFTER
+    )
+
+    bind_service_signal(
+        'signal_after_payment_detail_received',
+        on_invoice_paid,
         bind_type=ServiceSignalBindType.AFTER
     )

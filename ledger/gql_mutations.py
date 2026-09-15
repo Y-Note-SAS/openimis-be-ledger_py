@@ -38,6 +38,7 @@ class CreateJournalTypeInputType(OpenIMISMutation.Input):
 
     alt_language = graphene.String(required=True)
 
+
 class CreateAccountInputType(OpenIMISMutation.Input):
 
     name = graphene.String(required=True)

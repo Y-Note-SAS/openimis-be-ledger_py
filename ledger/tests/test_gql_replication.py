@@ -26,7 +26,8 @@ class PostingSignalsTest(TestCase):
     def setUp(self):
         self.user = create_test_interactive_user()
         self.context = SimpleNamespace(
-            user=self.user
+            user=self.user,
+            headers={"User-Agent": "test"}
         )
 
         self.account = Account.objects.create(

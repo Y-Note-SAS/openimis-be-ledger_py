@@ -8,14 +8,17 @@ from ledger.models import (
     LedgerJournal,
     Account,
     DeploymentConfiguration,
-    AccountingPeriod
+    AccountingPeriod,
+    JournalTypes
 )
+from payer.models import Payer
 from core.test_helpers import create_test_interactive_user
 from ledger.signals import on_claim_valuated
 from decimal import Decimal
 from claim.models import Claim
 from claim.test_helpers import create_test_claim
 from policyholder.models import PolicyHolder
+from .test_posting import create_journals
 
 
 class PostingTaggingTest(TestCase):
@@ -23,6 +26,9 @@ class PostingTaggingTest(TestCase):
     @classmethod
     def setUpTestData(self):
         self.user = create_test_interactive_user()
+
+        create_journals(self.user)
+
         custom_props = {
             "date_claimed": "2026-01-01",
             "valuated": Decimal("100"),
@@ -30,6 +36,13 @@ class PostingTaggingTest(TestCase):
             "status": Claim.STATUS_VALUATED
         }
         self.claim = create_test_claim(custom_props=custom_props)
+
+        self.payer = Payer()
+        self.payer.type = Payer.PAYER_TYPE_COOP
+        self.payer.name = "Test"
+        self.payer.audit_user_id = 1
+        self.payer.location = self.claim.health_facility.location
+        self.payer.save()
 
         self.account = Account.objects.create(
             code="1001",
@@ -43,9 +56,11 @@ class PostingTaggingTest(TestCase):
             name="Account 2",
         )
 
+        journal_type_purchase = JournalTypes.objects.filter(code="purchase").first()
         self.claims_journal = LedgerJournal(
             code="Claims",
             name="Claims",
+            type=journal_type_purchase,
             default_credit_account_id=self.account,
             default_debit_account_id=self.exp_account,
         )
@@ -125,7 +140,8 @@ class PostingTaggingTest(TestCase):
 
         on_claim_valuated(
             sender=None,
-            claim=self.claim,
+            result=(self.claim, []),
+            data=(["", self.user], None),
             user=self.user,
         )
 
@@ -241,7 +257,8 @@ class PostingTaggingTest(TestCase):
 
         on_claim_valuated(
             sender=None,
-            claim=self.claim,
+            result=(self.claim, []),
+            data=(["", self.user], None),
             user=self.user,
         )
 

@@ -27,6 +27,7 @@ class LedgerEntriesFilterTest(TestCase):
 
         self.context = SimpleNamespace(
             user=self.user,
+            headers={"User-Agent": "test"}
         )
 
         self.period = AccountingPeriod(
