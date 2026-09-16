@@ -534,10 +534,10 @@ def on_invoice_paid(
     amount = input_data["amount_received"]
     date_payment = input_data["date_payment"]
     payload = {
-        "payment_invoice": payment_invoice.id,
+        "payment_invoice": str(payment_invoice.id),
         "status": status,
         "invoice_uuid": invoice_uuid,
-        "paymentInvoiceId": payment_invoice.id,
+        "paymentInvoiceId": str(payment_invoice.id),
         "user": user.username
     }
 
