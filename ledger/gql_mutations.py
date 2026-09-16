@@ -56,6 +56,13 @@ class CreateAccountInputType(OpenIMISMutation.Input):
     currencies = graphene.JSONString(required=False)
 
 
+class UpdateAccountInputType(CreateAccountInputType, OpenIMISMutation.Input):
+    """
+    Update Account GQL
+    """
+    account_uuid = graphene.UUID(required=True)
+
+
 class CreateJournalInputType(OpenIMISMutation.Input):
 
     name = graphene.String(required=True)
@@ -67,6 +74,11 @@ class CreateJournalInputType(OpenIMISMutation.Input):
     default_credit_account_id = graphene.UUID(required=True)
 
     default_debit_account_id = graphene.UUID(required=True)
+
+
+class UpdateJournalInputType(CreateJournalInputType, OpenIMISMutation.Input):
+
+    journal_uuid = graphene.UUID(required=True)
 
 
 class ManualReviewMutationInputType(OpenIMISMutation.Input):
@@ -250,6 +262,79 @@ class CreateJournalMutation(OpenIMISMutation):
         journal.save(username=user.username)
 
 
+class UpdateJournalMutation(OpenIMISMutation):
+
+    _mutation_module = "ledger"
+
+    _mutation_class = "UpdateJournalMutation"
+    _model = Account
+
+    class Input(UpdateJournalInputType):
+        pass
+
+    @classmethod
+    def async_mutate(cls, user, **data):
+
+        if type(user) is AnonymousUser or not user:
+            raise ValidationError(
+                _("mutation.authentication_required")
+            )
+        if not user.has_perms(LedgerConfig.gql_mutation_ledger_admin_perms):
+            raise PermissionDenied(_("unauthorized"))
+
+        name = data.get("name", None)
+        code = data.get("code", None)
+        journal_id = data.get("type", None)
+        journal_uuid = data.get("journal_uuid", None)
+        default_credit_account_id = data.get("default_credit_account_id", None)
+        default_debit_account_id = data.get("default_debit_account_id", None)
+
+        if "client_mutation_id" in data:
+            data.pop("client_mutation_id")
+        if "client_mutation_label" in data:
+            data.pop("client_mutation_label")
+
+        journal_type = None
+        if journal_id:
+            try:
+                journal_type = JournalTypes.objects.get(id=journal_id)
+            except JournalTypes.DoesNotExist:
+                raise ValidationError(
+                    _("The specified journal type was not found")
+                )
+
+        default_credit_account = None
+        if default_credit_account_id:
+            try:
+                default_credit_account = Account.objects.get(uuid=default_credit_account_id)
+            except Account.DoesNotExist:
+                raise ValidationError(
+                    _("The specified default credit account was not found")
+                )
+
+        default_debit_account = None
+        if default_debit_account_id:
+            try:
+                default_debit_account = Account.objects.get(uuid=default_debit_account_id)
+            except Account.DoesNotExist:
+                raise ValidationError(
+                    _("The specified default debit account was not found")
+                )
+
+        journal_to_update = LedgerJournal.objects.filter(id=journal_uuid).first()
+        if not journal_to_update:
+            raise ValidationError(
+                _("The specified journal to update was not found")
+            )
+
+        journal_to_update.code=code
+        journal_to_update.name=name
+        journal_to_update.type=journal_type
+        journal_to_update.default_credit_account_id=default_credit_account
+        journal_to_update.default_debit_account_id = default_debit_account
+        journal_to_update.save(username=user.username)
+
+
 class CreateJournalTypeMutation(OpenIMISMutation):
 
     _mutation_module = "ledger"
@@ -344,6 +429,79 @@ class CreateAccountMutation(OpenIMISMutation):
             )
 
         Account.objects.create(
+            code=code,
+            full_code=full_code,
+            name=name,
+            is_bank_account=is_bank_account,
+            type=acc_type,
+            currencies=currencies,
+            parent=parent
+        )
+
+class UpdateAccountMutation(OpenIMISMutation):
+
+    _mutation_module = "ledger"
+
+    _mutation_class = "UpdateAccountMutation"
+    _model = Account
+
+    class Input(UpdateAccountInputType):
+        pass
+
+    @classmethod
+    def async_mutate(cls, user, **data):
+
+        if type(user) is AnonymousUser or not user:
+            raise ValidationError(
+                _("mutation.authentication_required")
+            )
+        if not user.has_perms(LedgerConfig.gql_mutation_ledger_admin_perms):
+            raise PermissionDenied(_("unauthorized"))
+
+        name = data.get("name", None)
+        parent_id = data.get("parent_id", None)
+        full_code = data.get("full_code", None)
+        code = data.get("code", None)
+        is_bank_account = data.get("is_bank_account", None)
+        acc_type = data.get("type", None)
+        currencies = data.get("currencies", {})
+        logger.debug("currencies %s", currencies)
+        account_uuid = data.get("account_uuid", None)
+
+        if "client_mutation_id" in data:
+            data.pop("client_mutation_id")
+        if "client_mutation_label" in data:
+            data.pop("client_mutation_label")
+
+        parent = None
+        if parent_id:
+            try:
+                parent = Account.objects.get(uuid=parent_id)
+            except Account.DoesNotExist:
+                raise ValidationError(
+                    _("The specified parent account was not found")
+                )
+
+        acc_types = [
+            AccountType.asset,
+            AccountType.liability,
+            AccountType.income,
+            AccountType.expense,
+            AccountType.equity,
+            AccountType.trading
+        ]
+        if acc_type not in acc_types:
+            raise ValidationError(
+                _("Account type must be either AS, LI, IN, EX, EQ, TR")
+            )
+
+        account = Account.objects.filter(uuid=account_uuid)
+        if not account:
+            raise ValidationError(
+                _("The Account you are trying to update was not found")
+            )
+
+        account.update(
             code=code,
             full_code=full_code,
             name=name,

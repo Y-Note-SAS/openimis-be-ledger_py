@@ -26,6 +26,8 @@ from .gql_mutations import (
     CloseAccountingPeriodMutation,
     ReopenAccountingPeriodMutation,
     CreateAccountMutation,
+    UpdateAccountMutation,
+    UpdateJournalMutation,
     ManualReviewItemMutation,
     CreateJournalMutation,
     CreateJournalTypeMutation
@@ -206,6 +208,8 @@ class Mutation(graphene.ObjectType):
     close_accounting_period = CloseAccountingPeriodMutation.Field()
     reopen_accounting_period = ReopenAccountingPeriodMutation.Field()
     create_account = CreateAccountMutation.Field()
+    update_account = UpdateAccountMutation.Field()
     resolve_manual_review = ManualReviewItemMutation.Field()
     create_journal = CreateJournalMutation.Field()
+    update_journal = UpdateJournalMutation.Field()
     create_journal_type = CreateJournalTypeMutation.Field()
