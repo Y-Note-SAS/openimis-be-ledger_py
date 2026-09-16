@@ -30,7 +30,9 @@ from .gql_mutations import (
     UpdateJournalMutation,
     ManualReviewItemMutation,
     CreateJournalMutation,
-    CreateJournalTypeMutation
+    CreateJournalTypeMutation,
+    DeleteJournalMutation,
+    DeleteAccountMutation
 )
 from .models import (
     LegTag,
@@ -213,3 +215,5 @@ class Mutation(graphene.ObjectType):
     create_journal = CreateJournalMutation.Field()
     update_journal = UpdateJournalMutation.Field()
     create_journal_type = CreateJournalTypeMutation.Field()
+    delete_journal = DeleteJournalMutation.Field()
+    delete_account = DeleteAccountMutation.Field()

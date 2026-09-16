@@ -16,6 +16,7 @@ from .models import (
 from .services import PeriodService
 from datetime import datetime, timezone
 from .apps import LedgerConfig
+from django.db.models import Q
 logger = logging.getLogger(__name__)
 
 
@@ -63,6 +64,13 @@ class UpdateAccountInputType(CreateAccountInputType, OpenIMISMutation.Input):
     account_uuid = graphene.UUID(required=True)
 
 
+class DeleteAccountInputType(OpenIMISMutation.Input):
+    """
+    Delete Account GQL
+    """
+    account_uuid = graphene.UUID(required=True)
+
+
 class CreateJournalInputType(OpenIMISMutation.Input):
 
     name = graphene.String(required=True)
@@ -77,6 +85,11 @@ class CreateJournalInputType(OpenIMISMutation.Input):
 
 
 class UpdateJournalInputType(CreateJournalInputType, OpenIMISMutation.Input):
+
+    journal_uuid = graphene.UUID(required=True)
+
+
+class DeleteJournalInputType(OpenIMISMutation.Input):
 
     journal_uuid = graphene.UUID(required=True)
 
@@ -262,6 +275,37 @@ class CreateJournalMutation(OpenIMISMutation):
         journal.save(username=user.username)
 
 
+class DeleteJournalMutation(OpenIMISMutation):
+
+    _mutation_module = "ledger"
+
+    _mutation_class = "DeleteJournalMutation"
+    _model = Account
+
+    class Input(DeleteJournalInputType):
+        pass
+
+    @classmethod
+    def async_mutate(cls, user, **data):
+
+        if type(user) is AnonymousUser or not user:
+            raise ValidationError(
+                _("mutation.authentication_required")
+            )
+        if not user.has_perms(LedgerConfig.gql_mutation_ledger_admin_perms):
+            raise PermissionDenied(_("unauthorized"))
+
+        journal_uuid = data.get("journal_uuid", None)
+        journal = LedgerJournal.objects.filter(id=journal_uuid).first()
+        if not journal:
+            raise ValidationError(
+                _("The specified journal to delete was not found")
+            )
+
+        journal.is_deleted = True
+        journal.save(username=user.username)
+
+
 class UpdateJournalMutation(OpenIMISMutation):
 
     _mutation_module = "ledger"
@@ -437,6 +481,45 @@ class CreateAccountMutation(OpenIMISMutation):
             currencies=currencies,
             parent=parent
         )
+
+
+class DeleteAccountMutation(OpenIMISMutation):
+
+    _mutation_module = "ledger"
+
+    _mutation_class = "UpdateAccountMutation"
+    _model = Account
+
+    class Input(DeleteAccountInputType):
+        pass
+
+    @classmethod
+    def async_mutate(cls, user, **data):
+
+        if type(user) is AnonymousUser or not user:
+            raise ValidationError(
+                _("mutation.authentication_required")
+            )
+        if not user.has_perms(LedgerConfig.gql_mutation_ledger_admin_perms):
+            raise PermissionDenied(_("unauthorized"))
+
+        account_uuid = data.get("account_uuid", None)
+        account = Account.objects.filter(uuid=account_uuid).first()
+        if not account:
+            raise ValidationError(
+                _("The Account you are trying to delete was not found")
+            )
+        # if account.first().defaultdebitaccount
+        journals = LedgerJournal.objects.filter(
+            Q(default_credit_account_id=account) | Q(default_debit_account_id=account)
+        )
+        if journals:
+            raise ValidationError(
+                _("The account you are trying to delete is used by one or more journals," \
+                "please first  delete those journals")
+            )
+        account.delete()
+
 
 class UpdateAccountMutation(OpenIMISMutation):
 
