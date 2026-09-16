@@ -536,7 +536,7 @@ def on_invoice_paid(
     payload = {
         "payment_invoice": str(payment_invoice.id),
         "status": status,
-        "invoice_uuid": invoice_uuid,
+        "invoice_uuid": str(invoice_uuid),
         "paymentInvoiceId": str(payment_invoice.id),
         "user": user.username
     }
@@ -545,7 +545,7 @@ def on_invoice_paid(
         "Financial event received",
         extra={
             "event_type": "invoice_paid",
-            "invoice_uuid": invoice_uuid
+            "invoice_uuid": str(invoice_uuid)
         }
     )
 
