@@ -513,7 +513,12 @@ class DeleteAccountMutation(OpenIMISMutation):
             raise ValidationError(
                 _("The Account you are trying to delete was not found")
             )
-        # if account.first().defaultdebitaccount
+        childrens = account.get_children()
+        if childrens:
+            raise ValidationError(
+                _("The account you are trying to delete has childrens," \
+                "please first  delete those chidrens")
+            )
         journals = LedgerJournal.objects.filter(
             Q(default_credit_account_id=account) | Q(default_debit_account_id=account)
         ).filter(is_deleted=False)
