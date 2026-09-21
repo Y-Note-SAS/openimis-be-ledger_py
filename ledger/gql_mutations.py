@@ -51,8 +51,6 @@ class CreateAccountInputType(OpenIMISMutation.Input):
 
     code = graphene.String(required=True)
 
-    full_code = graphene.String(required=True)
-
     type = graphene.String(required=True)
 
     is_bank_account = graphene.Boolean(required=True)
@@ -446,7 +444,6 @@ class CreateAccountMutation(OpenIMISMutation):
 
         name = data.get("name", None)
         parent_id = data.get("parent_id", None)
-        full_code = data.get("full_code", None)
         code = data.get("code", None)
         is_bank_account = data.get("is_bank_account", None)
         acc_type = data.get("type", None)
@@ -482,7 +479,6 @@ class CreateAccountMutation(OpenIMISMutation):
 
         Account.objects.create(
             code=code,
-            full_code=full_code,
             name=name,
             is_bank_account=is_bank_account,
             type=acc_type,
@@ -551,7 +547,6 @@ class UpdateAccountMutation(OpenIMISMutation):
 
         name = data.get("name", None)
         parent_id = data.get("parent_id", None)
-        full_code = data.get("full_code", None)
         code = data.get("code", None)
         is_bank_account = data.get("is_bank_account", None)
         acc_type = data.get("type", None)
@@ -594,7 +589,6 @@ class UpdateAccountMutation(OpenIMISMutation):
 
         account.update(
             code=code,
-            full_code=full_code,
             name=name,
             is_bank_account=is_bank_account,
             type=acc_type,
