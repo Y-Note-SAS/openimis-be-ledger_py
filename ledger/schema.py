@@ -32,7 +32,8 @@ from .gql_mutations import (
     CreateJournalMutation,
     CreateJournalTypeMutation,
     DeleteJournalMutation,
-    DeleteAccountMutation
+    DeleteAccountMutation,
+    DeleteAccountingPeriodMutation
 )
 from .models import (
     LegTag,
@@ -103,7 +104,7 @@ class Query(graphene.ObjectType):
         **kwargs,
     ):
 
-        queryset = LedgerEntryMeta.objects.filter(is_deleted=False).all()
+        queryset = LedgerEntryMeta.objects.filter(is_deleted=False).order_by("-date_created").all()
 
         if party:
             queryset = queryset.filter(
@@ -217,3 +218,4 @@ class Mutation(graphene.ObjectType):
     create_journal_type = CreateJournalTypeMutation.Field()
     delete_journal = DeleteJournalMutation.Field()
     delete_account = DeleteAccountMutation.Field()
+    delete_accounting_period = DeleteAccountingPeriodMutation.Field()

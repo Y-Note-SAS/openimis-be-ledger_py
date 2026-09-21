@@ -11,7 +11,10 @@ from .models import (
     ManualReviewQueueItem,
     ExternalReplicationRecord,
     JournalTypes,
-    LedgerJournal
+    LedgerJournal,
+    AccountBalanceSnapshot,
+    LedgerEntryMeta,
+    PartyLedgerBalance
 )
 from .services import PeriodService
 from datetime import datetime, timezone
@@ -114,6 +117,11 @@ class OpenAccountingPeriodInputType(OpenIMISMutation.Input):
     name = graphene.String(required=True)
 
     code = graphene.String(required=True)
+
+
+class DeleteAccountingPeriodInputType(OpenIMISMutation.Input):
+
+    id = graphene.UUID(required=True)
 
 
 class LockAccountingPeriodInputType(OpenIMISMutation.Input):
@@ -487,7 +495,7 @@ class DeleteAccountMutation(OpenIMISMutation):
 
     _mutation_module = "ledger"
 
-    _mutation_class = "UpdateAccountMutation"
+    _mutation_class = "DeleteAccountMutation"
     _model = Account
 
     class Input(DeleteAccountInputType):
@@ -512,7 +520,7 @@ class DeleteAccountMutation(OpenIMISMutation):
         # if account.first().defaultdebitaccount
         journals = LedgerJournal.objects.filter(
             Q(default_credit_account_id=account) | Q(default_debit_account_id=account)
-        )
+        ).filter(is_deleted=False)
         if journals:
             raise ValidationError(
                 _("The account you are trying to delete is used by one or more journals," \
@@ -657,6 +665,66 @@ class LockAccountingPeriodMutation(OpenIMISMutation):
             period=period,
             user=user
         )
+
+
+class DeleteAccountingPeriodMutation(OpenIMISMutation):
+
+    _mutation_module = "ledger"
+
+    _mutation_class = "DeleteAccountingPeriodMutation"
+    _model = AccountingPeriod
+
+    class Input(DeleteAccountingPeriodInputType):
+        pass
+
+    @classmethod
+    def async_mutate(cls, user, **data):
+        logger.debug("Deleting Period...")
+
+        if type(user) is AnonymousUser or not user:
+            raise ValidationError(
+                _("mutation.authentication_required")
+            )
+
+        if not user.has_perms(LedgerConfig.gql_mutation_ledger_admin_perms):
+            raise PermissionDenied(_("unauthorized"))
+
+        period = AccountingPeriod.objects.filter(id=data["id"], is_deleted=False).first()
+        if not period:
+            return [
+                {
+                    'message': _("ledger.mutation.failed_to_delete_period"),
+                    'detail': _("The specified accounting period was not found")
+                }
+            ]
+
+        balance = AccountBalanceSnapshot.objects.filter(accounting_period__id=data["id"])
+        if balance:
+            return [
+                {
+                    'message': _("ledger.mutation.failed_to_delete_period"),
+                    'detail': _("Cannot delete a period linked to one or more balances")
+                }
+            ]
+
+        meta = LedgerEntryMeta.objects.filter(accounting_period__id=data["id"])
+        if meta:
+            return [
+                {
+                    'message': _("ledger.mutation.failed_to_delete_period"),
+                    'detail': _("Cannot delete a period linked to one or more entries")
+                }
+            ]
+
+        ledger_balance = PartyLedgerBalance.objects.filter(accounting_period__id=data["id"])
+        if ledger_balance:
+            return [
+                {
+                    'message': _("ledger.mutation.failed_to_delete_period"),
+                    'detail': _("Cannot delete a period linked to one or more party balances")
+                }
+            ]
+        period.delete()
 
 
 class CloseAccountingPeriodMutation(OpenIMISMutation):

@@ -132,12 +132,10 @@ def on_claim_valuated(
     sender,
     **kwargs,
 ):
-    claim, errors = kwargs['result']
+    claim = kwargs['result']
     if not isinstance(claim, Claim):
         logger.info("set_claim_processed_or_valuated method has not returned a claim instance")
         return None
-    if errors:
-        logger.info("Cannot process due to errors on claim processing")
 
     user = kwargs.get('data', ([], None))[0][1]
     if claim.status != Claim.STATUS_VALUATED:
