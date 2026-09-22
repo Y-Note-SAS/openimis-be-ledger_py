@@ -169,30 +169,42 @@ class CreateDeploymentConfigurationMutation(OpenIMISMutation):
 
         if operating_mode == DeploymentConfiguration.OPERATING_MODE_REPLICATED:
             if not external_system:
-                raise ValidationError(
-                    _("External system is required when operating_mode is replicated")
-                )
+                return [
+                    {
+                        'message': _("ledger.mutation.failed_to_create_deployconfig"),
+                        'detail': _("External system is required when operating_mode is replicated")
+                    }
+                ]
 
         try:
             account = Account.objects.get(uuid=data["retained_earnings_account_id"])
         except Account.DoesNotExist:
-            raise ValidationError(
-                _("The specified retained earnings account account was not found")
-            )
+            return [
+                {
+                    'message': _("ledger.mutation.failed_to_create_deployconfig"),
+                    'detail': _("The specified retained earnings account account was not found")
+                }
+            ]
 
         if account.type in [AccountType.expense, AccountType.income]:
-            raise ValidationError(
-                _("retained earnings account type should not be income / expense")
-            )
+            return [
+                {
+                    'message': _("ledger.mutation.failed_to_create_deployconfig"),
+                    'detail': _("retained earnings account type should not be income / expense")
+                }
+            ]
 
         modes = [
             "local_only",
             "replicated"
         ]
         if operating_mode and operating_mode not in modes:
-            raise ValidationError(
-                _("Operating mode should be either local_only or replicated")
-            )
+            return [
+                {
+                    'message': _("ledger.mutation.failed_to_create_deployconfig"),
+                    'detail': _("Operating mode should be either local_only or replicated")
+                }
+            ]
 
         systems = [
             "odoo",
@@ -200,9 +212,12 @@ class CreateDeploymentConfigurationMutation(OpenIMISMutation):
         ]
         if external_system:
             if external_system not in systems:
-                raise ValidationError(
-                    _("external_system should be either odoo or sage")
-                )
+                return [
+                    {
+                        'message': _("ledger.mutation.failed_to_create_deployconfig"),
+                        'detail': _("external_system should be either odoo or sage")
+                    }
+                ]
 
         deployment_config = DeploymentConfiguration(
             operating_mode=operating_mode,
@@ -249,27 +264,36 @@ class CreateJournalMutation(OpenIMISMutation):
             try:
                 journal_type = JournalTypes.objects.get(id=journal_id)
             except JournalTypes.DoesNotExist:
-                raise ValidationError(
-                    _("The specified journal type was not found")
-                )
+                return [
+                    {
+                        'message': _("ledger.mutation.failed_to_create_journal"),
+                        'detail': _("The specified journal type was not found")
+                    }
+                ]
 
         default_credit_account = None
         if default_credit_account_id:
             try:
                 default_credit_account = Account.objects.get(uuid=default_credit_account_id)
             except Account.DoesNotExist:
-                raise ValidationError(
-                    _("The specified default credit account was not found")
-                )
+                return [
+                    {
+                        'message': _("ledger.mutation.failed_to_create_journal"),
+                        'detail': _("The specified default credit account was not found")
+                    }
+                ]
 
         default_debit_account = None
         if default_debit_account_id:
             try:
                 default_debit_account = Account.objects.get(uuid=default_debit_account_id)
             except Account.DoesNotExist:
-                raise ValidationError(
-                    _("The specified default debit account was not found")
-                )
+                return [
+                    {
+                        'message': _("ledger.mutation.failed_to_create_journal"),
+                        'detail': _("The specified default debit account was not found")
+                    }
+                ]
 
         journal = LedgerJournal(
             code=code,
@@ -304,9 +328,12 @@ class DeleteJournalMutation(OpenIMISMutation):
         journal_uuid = data.get("journal_uuid", None)
         journal = LedgerJournal.objects.filter(id=journal_uuid).first()
         if not journal:
-            raise ValidationError(
-                _("The specified journal to delete was not found")
-            )
+            return [
+                {
+                    'message': _("ledger.mutation.failed_to_delete_journal"),
+                    'detail': _("The specified journal to delete was not found")
+                }
+            ]
 
         journal.is_deleted = True
         journal.save(username=user.username)
@@ -349,33 +376,45 @@ class UpdateJournalMutation(OpenIMISMutation):
             try:
                 journal_type = JournalTypes.objects.get(id=journal_id)
             except JournalTypes.DoesNotExist:
-                raise ValidationError(
-                    _("The specified journal type was not found")
-                )
+                return [
+                    {
+                        'message': _("ledger.mutation.failed_to_update_journal"),
+                        'detail': _("The specified journal type was not found")
+                    }
+                ]
 
         default_credit_account = None
         if default_credit_account_id:
             try:
                 default_credit_account = Account.objects.get(uuid=default_credit_account_id)
             except Account.DoesNotExist:
-                raise ValidationError(
-                    _("The specified default credit account was not found")
-                )
+                return [
+                    {
+                        'message': _("ledger.mutation.failed_to_update_journal"),
+                        'detail': _("The specified default credit account was not found")
+                    }
+                ]
 
         default_debit_account = None
         if default_debit_account_id:
             try:
                 default_debit_account = Account.objects.get(uuid=default_debit_account_id)
             except Account.DoesNotExist:
-                raise ValidationError(
-                    _("The specified default debit account was not found")
-                )
+                return [
+                    {
+                        'message': _("ledger.mutation.failed_to_update_journal"),
+                        'detail': _("The specified default debit account was not found")
+                    }
+                ]
 
         journal_to_update = LedgerJournal.objects.filter(id=journal_uuid).first()
         if not journal_to_update:
-            raise ValidationError(
-                _("The specified journal to update was not found")
-            )
+            return [
+                {
+                    'message': _("ledger.mutation.failed_to_update_journal"),
+                    'detail': _("The specified journal to update was not found")
+                }
+            ]
 
         journal_to_update.code=code
         journal_to_update.name=name
@@ -460,9 +499,12 @@ class CreateAccountMutation(OpenIMISMutation):
             try:
                 parent = Account.objects.get(uuid=parent_id)
             except Account.DoesNotExist:
-                raise ValidationError(
-                    _("The specified parent account was not found")
-                )
+                return [
+                    {
+                        'message': _("ledger.mutation.failed_to_create_account"),
+                        'detail': _("The specified parent account was not found")
+                    }
+                ]
 
         acc_types = [
             AccountType.asset,
@@ -473,9 +515,12 @@ class CreateAccountMutation(OpenIMISMutation):
             AccountType.trading
         ]
         if acc_type not in acc_types:
-            raise ValidationError(
-                _("Account type must be either AS, LI, IN, EX, EQ, TR")
-            )
+            return [
+                {
+                    'message': _("ledger.mutation.failed_to_create_account"),
+                    'detail': _("Account type must be either AS, LI, IN, EX, EQ, TR")
+                }
+            ]
 
         Account.objects.create(
             code=code,
@@ -510,23 +555,32 @@ class DeleteAccountMutation(OpenIMISMutation):
         account_uuid = data.get("account_uuid", None)
         account = Account.objects.filter(uuid=account_uuid).first()
         if not account:
-            raise ValidationError(
-                _("The Account you are trying to delete was not found")
-            )
+            return [
+                {
+                    'message': _("ledger.mutation.failed_to_delete_account"),
+                    'detail': _("The Account you are trying to delete was not found")
+                }
+            ]
         childrens = account.get_children()
         if childrens:
-            raise ValidationError(
-                _("The account you are trying to delete has childrens," \
+            return [
+                {
+                    'message': _("ledger.mutation.failed_to_delete_account"),
+                    'detail': _("The account you are trying to delete has childrens," \
                 "please first  delete those chidrens")
-            )
+                }
+            ]
         journals = LedgerJournal.objects.filter(
             Q(default_credit_account_id=account) | Q(default_debit_account_id=account)
         ).filter(is_deleted=False)
         if journals:
-            raise ValidationError(
-                _("The account you are trying to delete is used by one or more journals," \
-                "please first  delete those journals")
-            )
+            return [
+                {
+                    'message': _("ledger.mutation.failed_to_delete_account"),
+                    'detail': _("The account you are trying to delete is used by one or " \
+                "more journals, please first  delete those journals")
+                }
+            ]
         account.delete()
 
 
@@ -569,9 +623,12 @@ class UpdateAccountMutation(OpenIMISMutation):
             try:
                 parent = Account.objects.get(uuid=parent_id)
             except Account.DoesNotExist:
-                raise ValidationError(
-                    _("The specified parent account was not found")
-                )
+                return [
+                    {
+                        'message': _("ledger.mutation.failed_to_update_account"),
+                        'detail': _("The specified parent account was not found")
+                    }
+                ]
 
         acc_types = [
             AccountType.asset,
@@ -582,15 +639,21 @@ class UpdateAccountMutation(OpenIMISMutation):
             AccountType.trading
         ]
         if acc_type not in acc_types:
-            raise ValidationError(
-                _("Account type must be either AS, LI, IN, EX, EQ, TR")
-            )
+            return [
+                {
+                    'message': _("ledger.mutation.failed_to_update_account"),
+                    'detail': _("Account type must be either AS, LI, IN, EX, EQ, TR")
+                }
+            ]
 
         account = Account.objects.filter(uuid=account_uuid)
         if not account:
-            raise ValidationError(
-                _("The Account you are trying to update was not found")
-            )
+            return [
+                {
+                    'message': _("ledger.mutation.failed_to_update_account"),
+                    'detail': _("The Account you are trying to update was not found")
+                }
+            ]
 
         account.update(
             code=code,
@@ -656,9 +719,12 @@ class LockAccountingPeriodMutation(OpenIMISMutation):
 
         period = AccountingPeriod.objects.filter(id=data["id"], is_deleted=False).first()
         if not period:
-            raise ValidationError(
-                _("The specified accounting period was not found")
-            )
+            return [
+                {
+                    'message': _("ledger.mutation.failed_to_lock_account"),
+                    'detail': _("The specified accounting period was not found")
+                }
+            ]
 
         PeriodService.lock(
             period=period,
@@ -750,9 +816,12 @@ class CloseAccountingPeriodMutation(OpenIMISMutation):
 
         period = AccountingPeriod.objects.filter(id=data["id"], is_deleted=False).first()
         if not period:
-            raise ValidationError(
-                _("The specified accounting period was not found")
-            )
+            return [
+                {
+                    'message': _("ledger.mutation.failed_to_close_account"),
+                    'detail': _("The specified accounting period was not found")
+                }
+            ]
 
         PeriodService.close(
             period=period,
@@ -784,9 +853,12 @@ class ReopenAccountingPeriodMutation(OpenIMISMutation):
 
         period = AccountingPeriod.objects.filter(id=data["id"], is_deleted=False).first()
         if not period:
-            raise ValidationError(
-                _("The specified accounting period was not found")
-            )
+            return [
+                {
+                    'message': _("ledger.mutation.failed_to_reopen_account"),
+                    'detail': _("The specified accounting period was not found")
+                }
+            ]
 
         PeriodService.reopen(
             period=period,
@@ -837,18 +909,24 @@ class ManualReviewItemMutation(OpenIMISMutation):
                 id=data["replication_record_id"], is_deleted=False
             ).first()
         if not replication_record_id:
-            raise ValidationError(
-                _("The specified replication record was not found")
-            )
+            return [
+                {
+                    'message': _("ledger.mutation.failed_to_create_manual_review"),
+                    'detail': _("The specified replication record was not found")
+                }
+            ]
 
         if resolved_by_transaction_id:
             try:
                 resolved_by_transaction_id =\
                     Transaction.objects.get(uuid=resolved_by_transaction_id)
             except Transaction.DoesNotExist:
-                raise ValidationError(
-                    _("The specified transaction resolved by was not found")
-                )
+                return [
+                    {
+                        'message': _("ledger.mutation.failed_to_create_manual_review"),
+                        'detail': _("The specified transaction resolved by was not found")
+                    }
+                ]
 
         manual_review = ManualReviewQueueItem(
             replication_record=replication_record_id,
