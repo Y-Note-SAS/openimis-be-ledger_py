@@ -157,9 +157,9 @@ def on_claim_valuated(
     )
 
     payload = {
-        "claim_id": str(claim.id) if claim else None,
-        "claim_code": claim.code if claim else None,
-        "username": user.username if user else None,
+        "claim_id": str(claim.id) if claim else "N/A",
+        "claim_code": claim.code if claim else "N/A",
+        "username": user.username if user else "N/A",
     }
 
     if not mapping:
@@ -306,9 +306,9 @@ def on_invoice_issued(
     insuree_id = invoice['invoice_data']['thirdparty_id']
     user = invoice['user']
     payload = {
-        "invoice_code": invoice_code,
-        "insuree_id": insuree_id,
-        "date_invoice": date_invoice,
+        "invoice_code": str(invoice_code),
+        "insuree_id": (insuree_id),
+        "date_invoice": str(date_invoice),
         "user": user.username
     }
 
@@ -534,7 +534,7 @@ def on_invoice_paid(
     date_payment = input_data["date_payment"]
     payload = {
         "payment_invoice": str(payment_invoice.id),
-        "status": status,
+        "status": str(status),
         "invoice_uuid": str(invoice_uuid),
         "paymentInvoiceId": str(payment_invoice.id),
         "user": user.username
