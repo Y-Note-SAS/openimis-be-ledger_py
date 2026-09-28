@@ -26,15 +26,15 @@ def download_period(request, period_id, export_type):
     period = AccountingPeriod.objects.filter(id=period_id)
     if not period.exists():
         return HttpResponse(
-                "This period does not exist",
-                status=400
-            )
+            "This period does not exist",
+            status=400
+        )
 
     if export_type == STANDARD:
-        return export_standard_gl(period)
+        return export_standard_gl(period.first())
 
     if export_type == FEC:
-        return export_fec_ohada(period)
+        return export_fec_ohada(period.first())
 
     return HttpResponse(
         "Invalid export type",
