@@ -23,7 +23,12 @@ FEC = "fec"
 ])
 def download_period(request, period_id, export_type):
 
-    period = AccountingPeriod.objects.get(id=period_id)
+    period = AccountingPeriod.objects.filter(id=period_id)
+    if not period:
+        return HttpResponse(
+                "This period does not exist",
+                status=400
+            )
 
     if export_type == STANDARD:
         return export_standard_gl(period)

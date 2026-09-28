@@ -310,7 +310,7 @@ class DeleteJournalMutation(OpenIMISMutation):
     _mutation_module = "ledger"
 
     _mutation_class = "DeleteJournalMutation"
-    _model = Account
+    _model = LedgerJournal
 
     class Input(DeleteJournalInputType):
         pass
@@ -344,7 +344,7 @@ class UpdateJournalMutation(OpenIMISMutation):
     _mutation_module = "ledger"
 
     _mutation_class = "UpdateJournalMutation"
-    _model = Account
+    _model = LedgerJournal
 
     class Input(UpdateJournalInputType):
         pass
@@ -361,7 +361,7 @@ class UpdateJournalMutation(OpenIMISMutation):
 
         name = data.get("name", None)
         code = data.get("code", None)
-        journal_id = data.get("type", None)
+        journal_type_id = data.get("type", None)
         journal_uuid = data.get("journal_uuid", None)
         default_credit_account_id = data.get("default_credit_account_id", None)
         default_debit_account_id = data.get("default_debit_account_id", None)
@@ -372,9 +372,9 @@ class UpdateJournalMutation(OpenIMISMutation):
             data.pop("client_mutation_label")
 
         journal_type = None
-        if journal_id:
+        if journal_type_id:
             try:
-                journal_type = JournalTypes.objects.get(id=journal_id)
+                journal_type = JournalTypes.objects.get(id=journal_type_id)
             except JournalTypes.DoesNotExist:
                 return [
                     {
@@ -567,7 +567,7 @@ class DeleteAccountMutation(OpenIMISMutation):
                 {
                     'message': _("ledger.mutation.failed_to_delete_account"),
                     'detail': _("The account you are trying to delete has childrens,"
-                                " please first  delete those chidrens")
+                                " please first  delete those children")
                 }
             ]
         journals = LedgerJournal.objects.filter(
@@ -646,7 +646,7 @@ class UpdateAccountMutation(OpenIMISMutation):
                 }
             ]
 
-        account = Account.objects.filter(uuid=account_uuid)
+        account = Account.objects.filter(uuid=account_uuid).first()
         if not account:
             return [
                 {
