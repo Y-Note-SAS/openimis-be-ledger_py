@@ -416,10 +416,10 @@ class UpdateJournalMutation(OpenIMISMutation):
                 }
             ]
 
-        journal_to_update.code=code
-        journal_to_update.name=name
-        journal_to_update.type=journal_type
-        journal_to_update.default_credit_account_id=default_credit_account
+        journal_to_update.code = code
+        journal_to_update.name = name
+        journal_to_update.type = journal_type
+        journal_to_update.default_credit_account_id = default_credit_account
         journal_to_update.default_debit_account_id = default_debit_account
         journal_to_update.save(username=user.username)
 
@@ -566,8 +566,8 @@ class DeleteAccountMutation(OpenIMISMutation):
             return [
                 {
                     'message': _("ledger.mutation.failed_to_delete_account"),
-                    'detail': _("The account you are trying to delete has childrens," \
-                "please first  delete those chidrens")
+                    'detail': _("The account you are trying to delete has childrens,"
+                                " please first  delete those chidrens")
                 }
             ]
         journals = LedgerJournal.objects.filter(
@@ -577,8 +577,8 @@ class DeleteAccountMutation(OpenIMISMutation):
             return [
                 {
                     'message': _("ledger.mutation.failed_to_delete_account"),
-                    'detail': _("The account you are trying to delete is used by one or " \
-                "more journals, please first  delete those journals")
+                    'detail': _("The account you are trying to delete is used by one or "
+                                "more journals, please first  delete those journals")
                 }
             ]
         account.delete()

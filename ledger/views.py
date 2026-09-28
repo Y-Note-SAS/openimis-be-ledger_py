@@ -98,6 +98,7 @@ def export_standard_gl(period):
 
     return response
 
+
 def export_fec_ohada(period):
 
     response = HttpResponse(

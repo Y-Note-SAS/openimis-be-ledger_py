@@ -60,7 +60,6 @@ def raise_unmapped(
     user
 ):
     payload.pop("user", None)
-    print("Payload ", payload)
     unmaped = UnmappedFinancialEvent(
         event_type=event_type,
         source_reference=source_reference,
