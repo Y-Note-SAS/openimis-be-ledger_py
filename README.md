@@ -204,3 +204,11 @@ All mutations enforce appropriate permissions and user authentication (see `Ledg
 ## Database
 The models map to tables prefixed with `tbl` (except `hordak_leg` and `hordak_transaction` which belong to Hordak).  
 Note: `LegTag` is partitioned and references `hordak_leg(id, accounting_period_id)` via a raw SQL composite foreign key (not expressible as a Django FK).
+
+## Tanzania Relative Pricing (Performance-Based Implementation)
+
+The default claim valuation signal (`on_claim_valuated`) computes the posting amount from `claim.valuated`, `claim.approved`, or `claim.claimed`, and assumes this amount is final once the claim reaches `STATUS_VALUATED`. This assumption works for most implementations (approximately 99% of cases) where valuation amounts are fixed after valuation.
+
+In Tanzania, which implements performance-based relative pricing, claim prices can change **after** the claim has been valuated. As a result, the automatic ledger entry posted at `claim_valuated` time may not reflect later price adjustments. Such adjustments require a different accounting treatment and should be managed outside this default signal (for example, by posting a separate adjusting entry when the final price is known).
+
+Implementations with similar dynamic pricing mechanisms should review whether the `claim_valuated` signal should be disabled or extended to handle price revisions, rather than relying on the one-time entry created here.
