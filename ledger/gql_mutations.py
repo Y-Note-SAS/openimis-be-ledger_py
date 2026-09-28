@@ -646,8 +646,8 @@ class UpdateAccountMutation(OpenIMISMutation):
                 }
             ]
 
-        account = Account.objects.filter(uuid=account_uuid).first()
-        if not account:
+        account = Account.objects.filter(uuid=account_uuid)
+        if not account.exists():
             return [
                 {
                     'message': _("ledger.mutation.failed_to_update_account"),
